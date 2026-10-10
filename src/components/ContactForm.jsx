@@ -10,12 +10,42 @@ export default function ContactForm() {
     message: ""
   });
 
+  const [status, setStatus] = useState({
+    submitting: false,
+    submitted: false,
+    error: false
+  });
+
+  // TODO: Yahan apna Formspree endpoint URL daalein (jaise https://formspree.io/f/mqkenwop)
+  const FORMSPREE_ENDPOINT = "https://formspree.io/f/xkjobrvw";
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setStatus({ submitting: true, submitted: false, error: false });
+
+    try {
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        setStatus({ submitting: false, submitted: true, error: false });
+        setFormData({ name: "", phone: "", email: "", message: "" });
+      } else {
+        setStatus({ submitting: false, submitted: false, error: true });
+      }
+    } catch (err) {
+      setStatus({ submitting: false, submitted: false, error: true });
+    }
   };
 
   return (
@@ -92,12 +122,26 @@ export default function ContactForm() {
           ></textarea>
         </div>
 
+        {/* Status Alerts */}
+        {status.submitted && (
+          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs sm:text-sm text-center font-medium">
+            Message sent successfully! I will get back to you shortly.
+          </div>
+        )}
+
+        {status.error && (
+          <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs sm:text-sm text-center font-medium">
+            Something went wrong. Please try again or email directly.
+          </div>
+        )}
+
         {/* Solid Blue Send Message Button */}
         <button
           type="submit"
-          className="w-full py-4 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] active:scale-[0.99] text-[#090d16] font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_rgba(114,187,246,0.35)]"
+          disabled={status.submitting}
+          className="w-full py-4 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] active:scale-[0.99] disabled:opacity-60 text-[#090d16] font-bold text-sm sm:text-base flex items-center justify-center gap-2 transition-all shadow-[0_0_25px_rgba(114,187,246,0.35)] cursor-pointer"
         >
-          <span>Send Message</span>
+          <span>{status.submitting ? "Sending..." : "Send Message"}</span>
           <span className="material-symbols-outlined text-[20px]">send</span>
         </button>
 
