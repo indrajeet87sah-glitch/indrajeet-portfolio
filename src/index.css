@@ -1,0 +1,112 @@
+/* Sirf ye ek line Tailwind ke liye kaafi hai (v4 syntax) */
+@import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 6rem; /* Fixed header ke liye spacing */
+}
+
+body {
+  background-color: #0b0f19; 
+  color: #f8fafc;
+  font-family: "Geist", sans-serif;
+  overflow-x: hidden;
+}
+
+.font-sans {
+  font-family: "Geist", sans-serif;
+}
+
+/* ========================================= */
+/* 1. Marquee Animations (Skills Section)    */
+/* ========================================= */
+@keyframes marqueeLeft {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes marqueeRight {
+  0% { transform: translateX(-50%); }
+  100% { transform: translateX(0); }
+}
+
+.animate-marquee-left {
+  display: flex;
+  width: max-content;
+  animation: marqueeLeft 28s linear infinite;
+}
+
+.animate-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: marqueeRight 32s linear infinite;
+}
+
+/* ========================================= */
+/* 2. Premium Grid Background Pattern        */
+/* ========================================= */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+}
+
+/* Twinkling Stars / Dots Background Effect */
+.bg-stars-pattern {
+  background-image: 
+    radial-gradient(2px 2px at 20px 30px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 40px 70px, rgba(56, 189, 248, 0.8), rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 90px 40px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 160px 120px, rgba(192, 132, 252, 0.9), rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 230px 80px, #ffffff, rgba(0,0,0,0)),
+    radial-gradient(2px 2px at 300px 180px, rgba(56, 189, 248, 0.8), rgba(0,0,0,0));
+  background-repeat: repeat;
+  background-size: 350px 350px;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0.3; transform: scale(0.9); }
+}
+
+.animate-twinkle {
+  animation: twinkle 4s infinite ease-in-out;
+}
+
+/* ========================================= */
+/* 3. Floating Blobs (Glow) Animations       */
+/* ========================================= */
+@keyframes blob {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+.animate-blob {
+  animation: blob 8s infinite alternate ease-in-out;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+@media (pointer: fine) {
+  body, a, button, input, textarea {
+    cursor: none !important;
+  }
+}
+/* ========================================= */
+/* 4. Interactive Mouse Spotlight Effect     */
+/* ========================================= */
+.mouse-spotlight {
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+    rgba(56, 189, 248, 0.12),
+    transparent 80%
+  );
+}
