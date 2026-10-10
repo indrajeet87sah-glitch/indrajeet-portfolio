@@ -40,6 +40,10 @@ export default function ContactForm() {
       if (response.ok) {
         setStatus({ submitting: false, submitted: true, error: false });
         setFormData({ name: "", phone: "", email: "", message: "" });
+        // 5 second baad green message apne aap gayab ho jayega
+        setTimeout(() => {
+          setStatus((prev) => ({ ...prev, submitted: false }));
+        }, 5000);
       } else {
         setStatus({ submitting: false, submitted: false, error: true });
       }
