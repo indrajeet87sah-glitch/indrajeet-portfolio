@@ -14,6 +14,7 @@ export default function AIChatBot() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false); // Mic state
   const chatBottomRef = useRef(null);
   const chipsRef = useRef(null);
 
@@ -34,7 +35,6 @@ export default function AIChatBot() {
     { label: "Contact Info 📬", prompt: "Indrajeet se connect ya contact kaise karein?" }
   ];
 
-  // Jab Chat open/close ho toh custom event bhejega
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("chatStateChange", { detail: isOpen }));
   }, [isOpen]);
@@ -65,6 +65,38 @@ export default function AIChatBot() {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  // NAYA CODE: Voice Recognition (Mic) ke liye function
+  const startListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert("Sorry, aapka browser voice recognition support nahi karta hai.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN'; // Aap ise 'hi-IN' bhi kar sakte hain Hindi ke liye
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      // Pehle se kuch likha ho toh uske aage append hoga
+      setInput((prev) => prev + (prev ? " " : "") + transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech recognition error", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => setIsListening(false);
+
+    recognition.start();
+  };
 
   const handleSend = async (e, directText = null) => {
     if (e) e.preventDefault();
@@ -111,7 +143,6 @@ export default function AIChatBot() {
   };
 
   return (
-    // Yahan class 'right-6' permanently set kar di hai, ab hilega nahi
     <div className="fixed bottom-6 right-5 sm:right-6 z-50 flex flex-col items-end transition-all duration-300 ease-in-out">
       <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setIsOpen(!isOpen)} className="w-14 h-14 rounded-full bg-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_25px_rgba(114,187,246,0.4)] cursor-pointer focus:outline-none">
         <span className="material-symbols-outlined text-[26px]">{isOpen ? "close" : "smart_toy"}</span>
@@ -143,10 +174,31 @@ export default function AIChatBot() {
                 <button key={idx} type="button" disabled={loading} onClick={() => handleSend(null, item.prompt)} className="text-[11px] whitespace-nowrap bg-white/5 hover:bg-[#72bbf6]/20 hover:text-[#72bbf6] text-slate-300 px-2.5 py-1 rounded-full border border-white/10 transition-colors disabled:opacity-50 flex-shrink-0 cursor-pointer shadow-sm">{item.label}</button>
               ))}
             </div>
+            
+            {/* NAYA CODE: Input field ke andar Mic Icon lagaya gaya hai */}
             <form onSubmit={(e) => handleSend(e)} className="p-3 bg-[#1a2133] border-t border-white/5 flex items-center gap-2">
-              <input type="text" placeholder="Ask anything (coding, projects, chat)..." value={input} onChange={(e) => setInput(e.target.value)} className="flex-1 bg-[#121724] text-white text-xs px-3.5 py-2.5 rounded-xl outline-none border border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500" />
-              <button type="submit" disabled={loading || !input.trim()} className="w-9 h-9 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] disabled:opacity-50 text-[#090d16] flex items-center justify-center transition-all cursor-pointer"><span className="material-symbols-outlined text-[18px]">send</span></button>
+              <div className="flex-1 relative flex items-center">
+                <input 
+                  type="text" 
+                  placeholder="Ask anything..." 
+                  value={input} 
+                  onChange={(e) => setInput(e.target.value)} 
+                  className="w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500" 
+                />
+                <button 
+                  type="button" 
+                  onClick={startListening} 
+                  className="absolute right-3 text-slate-400 hover:text-[#72bbf6] transition-colors"
+                  title="Voice Type"
+                >
+                  <span className={`material-symbols-outlined text-[18px] ${isListening ? 'text-red-400 animate-pulse' : ''}`}>
+                    mic
+                  </span>
+                </button>
+              </div>
+              <button type="submit" disabled={loading || !input.trim()} className="w-9 h-9 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] disabled:opacity-50 text-[#090d16] flex items-center justify-center transition-all cursor-pointer shrink-0"><span className="material-symbols-outlined text-[18px]">send</span></button>
             </form>
+
           </motion.div>
         )}
       </AnimatePresence>
