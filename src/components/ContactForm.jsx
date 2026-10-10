@@ -34,7 +34,10 @@ export default function ContactForm() {
           "Content-Type": "application/json",
           Accept: "application/json"
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          _subject: `New Portfolio Message from ${formData.name || "Visitor"}`
+        })
       });
 
       if (response.ok) {
@@ -61,7 +64,7 @@ export default function ContactForm() {
       className="w-full lg:w-[48%] rounded-[32px] bg-[#121724] border border-white/5 p-7 sm:p-9 shadow-2xl flex flex-col"
     >
       <form onSubmit={handleSubmit} className="flex flex-col space-y-6">
-        
+
         {/* Row: Name and Phone */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
