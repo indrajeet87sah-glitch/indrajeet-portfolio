@@ -64,12 +64,12 @@ export default function Header() {
             {/* Logo Hover Glow */}
             <div className="absolute -inset-2 bg-gradient-to-r from-[#38bdf8] to-[#c084fc] rounded-full blur-md opacity-0 group-hover:opacity-40 transition duration-500"></div>
             {/* Adjusted Logo Size for Mobile */}
-            <img src={logo} className="relative w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-lg" alt="IK Monogram Logo" />
+            <img src={logo} className="relative w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-lg" alt="IK Monogram Logo" />
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Adjusted Font Size for Mobile */}
-              <span className="text-sm sm:text-lg font-bold tracking-tight text-white leading-tight truncate">Indrajeet Sah</span>
+              <span className="text-[18px] sm:text-lg font-bold tracking-tight text-white leading-tight truncate">Indrajeet Sah</span>
               <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#38bdf8]/10 to-[#c084fc]/10 border border-[#38bdf8]/30 text-[#38bdf8] text-[10px] md:text-[11px] font-mono tracking-widest uppercase font-bold shadow-[0_0_15px_rgba(56,189,248,0.15)]">
                 Sr. Dev
               </span>
