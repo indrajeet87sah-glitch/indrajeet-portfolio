@@ -18,7 +18,6 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Top/Hero section par smooth scroll karne ke liye
   const scrollToTop = () => {
     window.scrollTo({
       top: 0,
@@ -41,39 +40,40 @@ export default function Header() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${
-        scrolled ? "pt-4 px-4 md:px-8" : "pt-6 px-6 md:px-12"
+        scrolled ? "pt-2 px-3 sm:pt-4 sm:px-8" : "pt-4 px-3 sm:pt-6 sm:px-12"
       }`}
     >
       {/* Navbar Container */}
       <div 
         className={`mx-auto max-w-7xl flex items-center justify-between transition-all duration-500 ease-in-out ${
           scrolled 
-            ? "bg-[#080e1a]/70 backdrop-blur-xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.8)] rounded-full px-5 py-3" 
-            : "bg-transparent border-transparent rounded-none px-2 py-2"
+            ? "bg-[#080e1a]/70 backdrop-blur-xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.8)] rounded-full px-3 py-2 sm:px-5 sm:py-3" 
+            : "bg-transparent border-transparent rounded-none px-1 py-2 sm:px-2"
         }`}
       >
         
-        {/* LOGO & NAME AREA (Click to Scroll to Top/Home) */}
+        {/* LOGO & NAME AREA */}
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
           onClick={scrollToTop}
-          className="flex items-center gap-3 md:gap-4 cursor-pointer group select-none"
+          className="flex items-center gap-2 sm:gap-3 md:gap-4 cursor-pointer group select-none min-w-0"
         >
-          <div className="relative">
+          <div className="relative shrink-0">
             {/* Logo Hover Glow */}
             <div className="absolute -inset-2 bg-gradient-to-r from-[#38bdf8] to-[#c084fc] rounded-full blur-md opacity-0 group-hover:opacity-40 transition duration-500"></div>
-            <img src={logo} className="relative w-10 h-10 object-contain drop-shadow-lg" alt="IK Monogram Logo" />
+            {/* Adjusted Logo Size for Mobile */}
+            <img src={logo} className="relative w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-lg" alt="IK Monogram Logo" />
           </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold tracking-tight text-white leading-tight">Indrajeet Sah</span>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Adjusted Font Size for Mobile */}
+              <span className="text-sm sm:text-lg font-bold tracking-tight text-white leading-tight truncate">Indrajeet Sah</span>
               <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#38bdf8]/10 to-[#c084fc]/10 border border-[#38bdf8]/30 text-[#38bdf8] text-[10px] md:text-[11px] font-mono tracking-widest uppercase font-bold shadow-[0_0_15px_rgba(56,189,248,0.15)]">
                 Sr. Dev
               </span>
             </div>
-            {/* Subtitle collapses when scrolled */}
             <span className={`hidden md:block font-mono text-[11px] text-slate-400 tracking-wider leading-none mt-1 transition-all duration-300 ${scrolled ? "opacity-0 h-0 overflow-hidden" : "opacity-100 h-auto"}`}>
               Senior Front-End Developer
             </span>
@@ -103,7 +103,6 @@ export default function Header() {
               className="relative px-5 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors group"
             >
               {item.label}
-              {/* Smooth Hover Underline Effect */}
               <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-[#38bdf8] to-[#c084fc] rounded-full transition-all duration-300 opacity-0 group-hover:w-1/2 group-hover:opacity-100 shadow-[0_0_8px_rgba(56,189,248,0.8)]"></span>
             </motion.a>
           ))}
@@ -114,17 +113,17 @@ export default function Header() {
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
-          className="flex items-center gap-2.5 sm:gap-3"
+          className="flex items-center gap-1.5 sm:gap-2.5 shrink-0"
         >
-          {/* Download Resume / CV Button */}
+          {/* Download Resume / CV Button - Adjusted for Mobile */}
           <a
             href="/Resume.pdf"
             download="Indrajeet_Sah_Resume.pdf"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold text-slate-200 bg-slate-900/90 border border-white/10 hover:border-[#38bdf8]/60 hover:text-white hover:bg-slate-800 transition-all duration-300 shadow-sm group active:scale-95"
+            className="inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold text-slate-200 bg-slate-900/90 border border-white/10 hover:border-[#38bdf8]/60 hover:text-white hover:bg-slate-800 transition-all duration-300 shadow-sm group active:scale-95"
           >
-            <span className="material-symbols-outlined text-[16px] text-[#38bdf8] group-hover:-translate-y-0.5 transition-transform duration-300">
+            <span className="material-symbols-outlined text-[14px] sm:text-[16px] text-[#38bdf8] group-hover:-translate-y-0.5 transition-transform duration-300">
               download
             </span>
             <span className="hidden sm:inline">Download</span> CV
@@ -138,13 +137,13 @@ export default function Header() {
             Get in Touch
           </a>
           
-          {/* Back to Top Icon */}
+          {/* Back to Top Icon - Adjusted for Mobile */}
           <div 
             onClick={scrollToTop}
             title="Back to Top"
-            className="w-10 h-10 rounded-full bg-slate-900/80 border border-white/10 flex items-center justify-center text-[#38bdf8] hover:bg-slate-800 hover:border-[#38bdf8]/50 hover:text-white hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all cursor-pointer backdrop-blur-sm"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 border border-white/10 flex items-center justify-center text-[#38bdf8] hover:bg-slate-800 hover:border-[#38bdf8]/50 hover:text-white hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all cursor-pointer backdrop-blur-sm"
           >
-            <span className="material-symbols-outlined text-[20px]">person</span>
+            <span className="material-symbols-outlined text-[16px] sm:text-[20px]">person</span>
           </div>
         </motion.div>
 

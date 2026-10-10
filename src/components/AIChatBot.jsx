@@ -19,6 +19,7 @@ export default function AIChatBot() {
   const chipsRef = useRef(null);
 
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+  
 
   const SYSTEM_INSTRUCTION = 
     "You are a friendly, fast, and helpful AI assistant on Indrajeet Kumar Sah's portfolio website. " +
