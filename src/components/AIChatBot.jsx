@@ -18,7 +18,6 @@ export default function AIChatBot() {
   const chatBottomRef = useRef(null);
   const chipsRef = useRef(null);
 
-  // Gemini ki API key use kar rahe hain
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
   const SYSTEM_INSTRUCTION = 
@@ -82,8 +81,6 @@ export default function AIChatBot() {
       if (!API_KEY) throw new Error("VITE_GEMINI_API_KEY .env file mein nahi mili hai!");
 
       const genAI = new GoogleGenerativeAI(API_KEY);
-      
-      // Yahan humne exact aapka working model set kiya hai
       const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash-lite" });
 
       const result = await model.generateContent({
