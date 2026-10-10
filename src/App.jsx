@@ -13,6 +13,7 @@ import Footer from "./components/Footer";
 import CustomCursor from "./components/CustomCursor";
 import ScrollProgress from "./components/ScrollProgress";
 import BackToTop from "./components/BackToTop";
+import AIChatBot from "./components/AIChatBot";
 
 export default function App() {
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function App() {
           <Projects />
           <Education />
           <Contact />
+          <AIChatBot />
         </main>
 
         <Footer />
