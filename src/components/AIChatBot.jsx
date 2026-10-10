@@ -20,7 +20,6 @@ export default function AIChatBot() {
 
   const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
   
-
   const SYSTEM_INSTRUCTION = 
     "You are a friendly, fast, and helpful AI assistant on Indrajeet Kumar Sah's portfolio website. " +
     "Indrajeet is a Front-End Developer skilled in React, Tailwind CSS, JavaScript, and UI engineering. " +
@@ -37,7 +36,10 @@ export default function AIChatBot() {
   ];
 
   useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 200);
+    const handleScroll = () => {
+      // 500px scroll hone par hi Chatbot apni position shift karega
+      setIsScrolled(window.scrollY > 500);
+    };
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -49,6 +51,7 @@ export default function AIChatBot() {
     let direction = 1;
     const interval = setInterval(() => {
       if (!isHovered && el) {
+        // Animation syntax errors fixed
         el.scrollLeft += direction * 0.8;
         if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 1) {
           direction = -1;
@@ -114,7 +117,7 @@ export default function AIChatBot() {
   };
 
   return (
-    <div className={`fixed bottom-6 z-50 flex flex-col items-end transition-all duration-300 ease-in-out ${isScrolled ? "right-20 sm:right-24" : "right-6"}`}>
+    <div className={`fixed bottom-6 z-50 flex flex-col items-end transition-all duration-300 ease-in-out ${isScrolled ? "right-22 sm:right-24" : "right-6"}`}>
       <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setIsOpen(!isOpen)} className="w-14 h-14 rounded-full bg-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_25px_rgba(114,187,246,0.4)] cursor-pointer focus:outline-none">
         <span className="material-symbols-outlined text-[26px]">{isOpen ? "close" : "smart_toy"}</span>
       </motion.button>

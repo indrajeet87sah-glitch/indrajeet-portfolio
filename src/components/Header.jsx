@@ -1,10 +1,11 @@
 // src/components/Header.jsx
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion"; // AnimatePresence import kiya
 import logo from "../assets/logo.png";
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Menu open/close track karne ke liye
 
   useEffect(() => {
     const handleScroll = () => {
@@ -45,9 +46,9 @@ export default function Header() {
     >
       {/* Navbar Container */}
       <div 
-        className={`mx-auto max-w-7xl flex items-center justify-between transition-all duration-500 ease-in-out ${
+        className={`relative mx-auto max-w-7xl flex items-center justify-between transition-all duration-500 ease-in-out ${
           scrolled 
-            ? "bg-[#080e1a]/70 backdrop-blur-xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.8)] rounded-full px-3 py-2 sm:px-5 sm:py-3" 
+            ? "bg-[#080e1a]/80 backdrop-blur-xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.8)] rounded-full px-3 py-2 sm:px-5 sm:py-3" 
             : "bg-transparent border-transparent rounded-none px-1 py-2 sm:px-2"
         }`}
       >
@@ -61,15 +62,12 @@ export default function Header() {
           className="flex items-center gap-2 sm:gap-3 md:gap-4 cursor-pointer group select-none min-w-0"
         >
           <div className="relative shrink-0">
-            {/* Logo Hover Glow */}
             <div className="absolute -inset-2 bg-gradient-to-r from-[#38bdf8] to-[#c084fc] rounded-full blur-md opacity-0 group-hover:opacity-40 transition duration-500"></div>
-            {/* Adjusted Logo Size for Mobile */}
-            <img src={logo} className="relative w-9 h-9 sm:w-10 sm:h-10 object-contain drop-shadow-lg" alt="IK Monogram Logo" />
+            <img src={logo} className="relative w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-lg" alt="IK Monogram Logo" />
           </div>
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5 sm:gap-2">
-              {/* Adjusted Font Size for Mobile */}
-              <span className="text-[18px] sm:text-lg font-bold tracking-tight text-white leading-tight truncate">Indrajeet Sah</span>
+              <span className="text-[20px] sm:text-lg font-bold tracking-tight text-white leading-tight truncate">Indrajeet Sah</span>
               <span className="hidden sm:inline-flex items-center px-2.5 py-0.5 rounded-full bg-gradient-to-r from-[#38bdf8]/10 to-[#c084fc]/10 border border-[#38bdf8]/30 text-[#38bdf8] text-[10px] md:text-[11px] font-mono tracking-widest uppercase font-bold shadow-[0_0_15px_rgba(56,189,248,0.15)]">
                 Sr. Dev
               </span>
@@ -80,7 +78,7 @@ export default function Header() {
           </div>
         </motion.div>
 
-        {/* DESKTOP NAVIGATION */}
+        {/* DESKTOP NAVIGATION (Hidden on Mobile) */}
         <motion.nav 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -115,37 +113,86 @@ export default function Header() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="flex items-center gap-1.5 sm:gap-2.5 shrink-0"
         >
-          {/* Download Resume / CV Button - Adjusted for Mobile */}
+          {/* Download CV Button */}
           <a
             href="/Resume.pdf"
             download="Indrajeet_Sah_Resume.pdf"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[11px] sm:text-xs font-bold text-slate-200 bg-slate-900/90 border border-white/10 hover:border-[#38bdf8]/60 hover:text-white hover:bg-slate-800 transition-all duration-300 shadow-sm group active:scale-95"
+            className="inline-flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full text-[14px] sm:text-xs font-bold text-slate-200 bg-slate-900/90 border border-white/10 hover:border-[#38bdf8]/60 hover:text-white hover:bg-slate-800 transition-all duration-300 shadow-sm group active:scale-95"
           >
-            <span className="material-symbols-outlined text-[14px] sm:text-[16px] text-[#38bdf8] group-hover:-translate-y-0.5 transition-transform duration-300">
+            <span className="material-symbols-outlined text-[16px] sm:text-[16px] text-[#38bdf8] group-hover:-translate-y-0.5 transition-transform duration-300">
               download
             </span>
             <span className="hidden sm:inline">Download</span> CV
           </a>
 
-          {/* Get in Touch CTA Button */}
+          {/* Get in Touch Button (Desktop Only) */}
           <a
-            className="hidden sm:inline-flex items-center justify-center px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-[#0b0f19] bg-gradient-to-r from-[#38bdf8] to-[#00d4ff] hover:from-[#7dd3fc] hover:to-[#38bdf8] transition-all duration-300 shadow-[0_0_20px_rgba(56,189,248,0.4)] hover:shadow-[0_0_30px_rgba(56,189,248,0.7)] hover:-translate-y-0.5 active:scale-95"
+            className="hidden lg:inline-flex items-center justify-center px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-[#0b0f19] bg-gradient-to-r from-[#38bdf8] to-[#00d4ff] hover:from-[#7dd3fc] hover:to-[#38bdf8] transition-all duration-300 shadow-[0_0_20px_rgba(56,189,248,0.4)] hover:shadow-[0_0_30px_rgba(56,189,248,0.7)] hover:-translate-y-0.5 active:scale-95"
             href="#contact"
           >
             Get in Touch
           </a>
           
-          {/* Back to Top Icon - Adjusted for Mobile */}
+          {/* Desktop Back to Top Icon (Hidden on Mobile) */}
           <div 
             onClick={scrollToTop}
             title="Back to Top"
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 border border-white/10 flex items-center justify-center text-[#38bdf8] hover:bg-slate-800 hover:border-[#38bdf8]/50 hover:text-white hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all cursor-pointer backdrop-blur-sm"
+            className="hidden lg:flex w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 border border-white/10 items-center justify-center text-[#38bdf8] hover:bg-slate-800 hover:border-[#38bdf8]/50 hover:text-white hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all cursor-pointer backdrop-blur-sm"
           >
             <span className="material-symbols-outlined text-[16px] sm:text-[20px]">person</span>
           </div>
+
+          {/* Mobile Hamburger Menu Toggle Icon (Mobile Only) */}
+          <button 
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="lg:hidden w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 border border-white/10 flex items-center justify-center text-[#38bdf8] hover:bg-slate-800 hover:border-[#38bdf8]/50 hover:text-white transition-all cursor-pointer backdrop-blur-sm"
+          >
+            <span className="material-symbols-outlined text-[16px] sm:text-[20px]">
+              {isMobileMenuOpen ? "close" : "menu"}
+            </span>
+          </button>
         </motion.div>
+
+        {/* MOBILE DROPDOWN MENU */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: -15, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -15, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="absolute top-[120%] left-0 right-0 p-4 rounded-2xl bg-[#080e1a]/95 backdrop-blur-xl border border-white/10 shadow-2xl lg:hidden flex flex-col gap-1 overflow-hidden"
+            >
+              {navItems.map((item) => (
+                <a
+                  key={item.label}
+                  href={item.href}
+                  onClick={(e) => {
+                    setIsMobileMenuOpen(false); // Link pe click hote hi menu close
+                    if (item.label === "Home") {
+                      e.preventDefault();
+                      scrollToTop();
+                    }
+                  }}
+                  className="px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                >
+                  {item.label}
+                </a>
+              ))}
+              
+              {/* Mobile Menu CTA */}
+              <a
+                href="#contact"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="mt-3 flex items-center justify-center w-full px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-[#0b0f19] bg-gradient-to-r from-[#38bdf8] to-[#00d4ff] active:scale-95 transition-transform"
+              >
+                Get in Touch
+              </a>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
       </div>
     </motion.header>
