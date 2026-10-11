@@ -5,7 +5,7 @@ import { STATS_DATA } from "../data/statsData";
 
 export default function StatsCounter() {
   return (
-    <section className="w-full pt-15 pb-4 relative bg-[#060913]/90">
+    <section className="w-full pt-15 pb-15 relative bg-[#060913]/90">
       
       {/* Dynamic Grid */}
       <div className="max-w-7xl mx-auto px-6 lg:px-12 relative z-10">

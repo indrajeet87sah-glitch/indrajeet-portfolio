@@ -49,7 +49,7 @@ export default function ContactInfo() {
           <span className="text-[11px] font-mono tracking-wider text-slate-400 uppercase font-semibold">
             EMAIL DIRECT
           </span>
-          <span className="text-base font-bold text-white group-hover:text-[#72bbf6] transition-colors mt-0.5">
+          <span className="text-[13px] sm:text-base font-bold text-white group-hover:text-[#72bbf6] transition-colors mt-0.5">
             indrakumar2014.sah@gmail.com
           </span>
         </div>
