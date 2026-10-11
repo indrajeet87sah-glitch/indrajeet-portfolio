@@ -1,11 +1,11 @@
 // src/components/Header.jsx
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion"; // AnimatePresence import kiya
+import { motion, AnimatePresence } from "framer-motion";
 import logo from "../assets/logo.png";
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Menu open/close track karne ke liye
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -24,6 +24,31 @@ export default function Header() {
       top: 0,
       behavior: "smooth"
     });
+    // Agar URL mein pehle se koi #id hai toh use bhi hata dega
+    window.history.replaceState(null, "", window.location.pathname);
+  };
+
+  // NEW: Bina URL mein #id laaye smooth scroll karne ka function
+  const scrollToSection = (e, href, label = "") => {
+    e.preventDefault(); // URL mein #contact aane se rokega
+    setIsMobileMenuOpen(false); // Mobile menu खुला ho toh band kar dega
+
+    if (label === "Home" || href === "#hero") {
+      scrollToTop();
+      return;
+    }
+
+    const targetId = href.replace("#", "");
+    const element = document.getElementById(targetId);
+
+    if (element) {
+      element.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+      // URL ko hamesha clean rakhega
+      window.history.replaceState(null, "", window.location.pathname);
+    }
   };
 
   const navItems = [
@@ -36,25 +61,23 @@ export default function Header() {
   ];
 
   return (
-    <motion.header 
+    <motion.header
       initial={{ y: -80, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${
-        scrolled ? "pt-2 px-3 sm:pt-4 sm:px-8" : "pt-4 px-3 sm:pt-6 sm:px-12"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-in-out ${scrolled ? "pt-2 px-3 sm:pt-4 sm:px-8" : "pt-4 px-3 sm:pt-6 sm:px-12"
+        }`}
     >
       {/* Navbar Container */}
-      <div 
-        className={`relative mx-auto max-w-7xl flex items-center justify-between transition-all duration-500 ease-in-out ${
-          scrolled 
-            ? "bg-[#080e1a]/80 backdrop-blur-xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.8)] rounded-full px-3 py-2 sm:px-5 sm:py-3" 
+      <div
+        className={`relative mx-auto max-w-7xl flex items-center justify-between transition-all duration-500 ease-in-out ${scrolled
+            ? "bg-[#080e1a]/80 backdrop-blur-xl border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.8)] rounded-full px-3 py-2 sm:px-5 sm:py-3"
             : "bg-transparent border-transparent rounded-none px-1 py-2 sm:px-2"
-        }`}
+          }`}
       >
-        
+
         {/* LOGO & NAME AREA */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.2 }}
@@ -79,26 +102,21 @@ export default function Header() {
         </motion.div>
 
         {/* DESKTOP NAVIGATION (Hidden on Mobile) */}
-        <motion.nav 
+        <motion.nav
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3 }}
           className="hidden lg:flex items-center gap-1 bg-white/5 border border-white/10 rounded-full px-2 py-1.5 backdrop-blur-md shadow-inner"
         >
           {navItems.map((item, index) => (
-            <motion.a 
-              key={item.label} 
+            <motion.a
+              key={item.label}
               href={item.href}
-              onClick={(e) => {
-                if (item.label === "Home") {
-                  e.preventDefault();
-                  scrollToTop();
-                }
-              }}
+              onClick={(e) => scrollToSection(e, item.href, item.label)}
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.35 + index * 0.06 }}
-              className="relative px-5 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors group"
+              className="relative px-5 py-2 text-sm font-medium text-slate-300 hover:text-white transition-colors group cursor-pointer"
             >
               {item.label}
               <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-[#38bdf8] to-[#c084fc] rounded-full transition-all duration-300 opacity-0 group-hover:w-1/2 group-hover:opacity-100 shadow-[0_0_8px_rgba(56,189,248,0.8)]"></span>
@@ -107,7 +125,7 @@ export default function Header() {
         </motion.nav>
 
         {/* CTA BUTTONS & USER ICON */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
@@ -129,14 +147,15 @@ export default function Header() {
 
           {/* Get in Touch Button (Desktop Only) */}
           <a
-            className="hidden lg:inline-flex items-center justify-center px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-[#0b0f19] bg-gradient-to-r from-[#38bdf8] to-[#00d4ff] hover:from-[#7dd3fc] hover:to-[#38bdf8] transition-all duration-300 shadow-[0_0_20px_rgba(56,189,248,0.4)] hover:shadow-[0_0_30px_rgba(56,189,248,0.7)] hover:-translate-y-0.5 active:scale-95"
             href="#contact"
+            onClick={(e) => scrollToSection(e, "#contact")}
+            className="hidden lg:inline-flex items-center justify-center px-5 py-2.5 rounded-full text-xs font-bold uppercase tracking-widest text-[#0b0f19] bg-gradient-to-r from-[#38bdf8] to-[#00d4ff] hover:from-[#7dd3fc] hover:to-[#38bdf8] transition-all duration-300 shadow-[0_0_20px_rgba(56,189,248,0.4)] hover:shadow-[0_0_30px_rgba(56,189,248,0.7)] hover:-translate-y-0.5 active:scale-95 cursor-pointer"
           >
             Get in Touch
           </a>
-          
+
           {/* Desktop Back to Top Icon (Hidden on Mobile) */}
-          <div 
+          <div
             onClick={scrollToTop}
             title="Back to Top"
             className="hidden lg:flex w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 border border-white/10 items-center justify-center text-[#38bdf8] hover:bg-slate-800 hover:border-[#38bdf8]/50 hover:text-white hover:shadow-[0_0_15px_rgba(56,189,248,0.4)] transition-all cursor-pointer backdrop-blur-sm"
@@ -145,7 +164,8 @@ export default function Header() {
           </div>
 
           {/* Mobile Hamburger Menu Toggle Icon (Mobile Only) */}
-          <button 
+          <button
+            type="button"
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
             className="lg:hidden w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-slate-900/80 border border-white/10 flex items-center justify-center text-[#38bdf8] hover:bg-slate-800 hover:border-[#38bdf8]/50 hover:text-white transition-all cursor-pointer backdrop-blur-sm"
           >
@@ -169,24 +189,18 @@ export default function Header() {
                 <a
                   key={item.label}
                   href={item.href}
-                  onClick={(e) => {
-                    setIsMobileMenuOpen(false); // Link pe click hote hi menu close
-                    if (item.label === "Home") {
-                      e.preventDefault();
-                      scrollToTop();
-                    }
-                  }}
-                  className="px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                  onClick={(e) => scrollToSection(e, item.href, item.label)}
+                  className="px-4 py-3 text-sm font-medium text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
                 >
                   {item.label}
                 </a>
               ))}
-              
+
               {/* Mobile Menu CTA */}
               <a
                 href="#contact"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="mt-3 flex items-center justify-center w-full px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-[#0b0f19] bg-gradient-to-r from-[#38bdf8] to-[#00d4ff] active:scale-95 transition-transform"
+                onClick={(e) => scrollToSection(e, "#contact")}
+                className="mt-3 flex items-center justify-center w-full px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-widest text-[#0b0f19] bg-gradient-to-r from-[#38bdf8] to-[#00d4ff] active:scale-95 transition-transform cursor-pointer"
               >
                 Get in Touch
               </a>
