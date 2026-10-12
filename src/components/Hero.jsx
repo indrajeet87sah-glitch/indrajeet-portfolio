@@ -1,6 +1,7 @@
 // src/components/Hero.jsx
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import profileImg from '../assets/profile.jpg';
 
 export default function Hero() {
   const [typewriterText, setTypewriterText] = useState("");
@@ -64,7 +65,7 @@ export default function Hero() {
               <img
                 alt="Indrajeet Kumar Sah"
                 className="w-full h-full object-cover object-top transform group-hover:scale-105 transition-transform duration-700"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCmVYk3tZI6ljto5c5bshUM5FhUQw1WGYjOCl4Fa8WFqLEewJrcCm5bDE7vJrmHO0QysItgHFH7Vfw59wiNYR8TWZE8NZlUHqfNq1EAwsNCAi7snynKoz7JZNZMPYcSG_QAUs5wSrU9YNOCN-JKXOB-SFkybpwtCxRKmDL6MBakKbXJxIYEo3-x7a-bs3TtSAy-NKr_XTHh9EnY2MNotlzYplNaCNOAzyA64-JbV8_s0PSEblqCb6O_MLxHf3IdlPzPUw"
+                src={profileImg}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/10 to-transparent pointer-events-none"></div>
               <div className="absolute inset-0 ring-1 ring-inset ring-white/10 pointer-events-none rounded-[22px]"></div>
