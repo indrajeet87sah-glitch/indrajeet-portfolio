@@ -623,18 +623,40 @@ CRITICAL RULES:
                 )}
             </AnimatePresence>
 
-            {/* Floating Toggle Button */}
-            <motion.button
-                type="button"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setIsOpen((prev) => !prev)}
-                className="w-14 h-14 rounded-full bg-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_25px_rgba(114,187,246,0.4)] cursor-pointer focus:outline-none"
-            >
-                <span className="material-symbols-outlined text-[26px]">
-                    {isOpen ? "close" : "smart_toy"}
-                </span>
-            </motion.button>
+            {/* SUPER ATTRACTIVE FLOATING TOGGLE BUTTON WITH PULSE RING & TOOLTIP */}
+            <div className="relative flex items-center">
+                {/* Attention-grabbing Tooltip Bubble */}
+                {!isOpen && (
+                    <motion.div
+                        initial={{ opacity: 0, x: 10, scale: 0.9 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        transition={{ duration: 0.4, delay: 0.5 }}
+                        className="absolute right-16 px-3.5 py-2 bg-[#1a2133] border border-[#72bbf6]/40 text-white text-xs font-medium rounded-2xl shadow-[0_0_20px_rgba(114,187,246,0.3)] whitespace-nowrap pointer-events-none flex items-center gap-2"
+                    >
+                        <span>👋 Ask Indrajeet's AI Assistant</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    </motion.div>
+                )}
+
+                {/* Continuous Glowing Ring */}
+                {!isOpen && (
+                    <span className="absolute inset-0 rounded-full bg-[#72bbf6] opacity-75 animate-ping pointer-events-none"></span>
+                )}
+
+                {/* Main Floating Button */}
+                <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsOpen((prev) => !prev)}
+                    className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-[#5caeeb] to-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_30px_rgba(114,187,246,0.6)] cursor-pointer focus:outline-none border-2 border-white/20"
+                    title="Talk with AI Assistant"
+                >
+                    <span className="material-symbols-outlined text-[26px] font-bold">
+                        {isOpen ? "close" : "smart_toy"}
+                    </span>
+                </motion.button>
+            </div>
         </div>
     );
 }

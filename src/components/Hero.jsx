@@ -7,7 +7,7 @@ export default function Hero() {
   const [typewriterText, setTypewriterText] = useState("");
 
   useEffect(() => {
-    const phrases = ["Senior Front-End Developer", "React Developer", "Web Performance Expert"];
+    const phrases = ["Front-End Developer", "UI/UX Designer", "React Developer"];
     let phraseIndex = 0;
     let charIndex = 0;
     let isDeleting = false;
@@ -43,9 +43,9 @@ export default function Hero() {
   return (
     <section className="w-full py-16 lg:py-36 relative flex items-center border-b border-white/5 overflow-hidden" id="hero">
       <div className="w-full max-w-7xl mx-auto px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-        
+
         {/* Right Column (Image & Floating Badges): Mobile: 1st, Desktop: 2nd */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
@@ -56,7 +56,7 @@ export default function Hero() {
 
           {/* Main Portrait Frame */}
           <div className="relative w-64 sm:w-80 lg:w-96 h-[380px] sm:h-[450px] lg:h-[500px] p-[2px] rounded-3xl bg-gradient-to-b from-white/25 via-white/10 to-transparent shadow-2xl group">
-            
+
             {/* Corner Accents */}
             <div className="absolute -top-2.5 -left-2.5 w-6 h-6 border-t-2 border-l-2 border-[#38bdf8]/70 rounded-tl-xl pointer-events-none z-20"></div>
             <div className="absolute -bottom-2.5 -right-2.5 w-6 h-6 border-b-2 border-r-2 border-purple-400/70 rounded-br-xl pointer-events-none z-20"></div>
@@ -75,13 +75,13 @@ export default function Hero() {
           {/* ========================================= */}
           {/* FLOATING BADGES (Animated Entrance) */}
           {/* ========================================= */}
-          
-          {/* React.js Badge */}
-          <motion.div 
+
+          {/* React.js Learning Badge */}
+          <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
-            className="absolute top-2 -left-4 sm:top-6 sm:-left-8 px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl flex items-center gap-2 border border-purple-500/30 z-25 animate-bounce" 
+            className="absolute top-2 -left-4 sm:top-6 sm:-left-8 px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl flex items-center gap-2 border border-purple-500/30 z-25 animate-bounce"
             style={{ animationDuration: '4s' }}
           >
             <span className="material-symbols-outlined text-purple-400 text-[20px]">school</span>
@@ -92,11 +92,11 @@ export default function Hero() {
           </motion.div>
 
           {/* JavaScript Badge */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="absolute top-1/3 -right-4 sm:-right-8 px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl flex items-center gap-2 border border-[#38bdf8]/30 z-25 animate-bounce" 
+            className="absolute top-1/3 -right-4 sm:-right-8 px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl flex items-center gap-2 border border-[#38bdf8]/30 z-25 animate-bounce"
             style={{ animationDuration: '5s' }}
           >
             <span className="material-symbols-outlined text-[#38bdf8] text-[20px]">code</span>
@@ -104,19 +104,19 @@ export default function Hero() {
           </motion.div>
 
           {/* CSS3 / Tailwind Badge */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.6, delay: 0.5 }}
-            className="absolute bottom-20 -left-4 sm:bottom-24 sm:-left-8 px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl flex items-center gap-2 border border-purple-500/30 z-25 animate-bounce" 
+            className="absolute bottom-20 -left-4 sm:bottom-24 sm:-left-8 px-4 py-2 rounded-2xl bg-slate-900/95 backdrop-blur-md shadow-2xl flex items-center gap-2 border border-purple-500/30 z-25 animate-bounce"
             style={{ animationDuration: '4.5s' }}
           >
             <span className="material-symbols-outlined text-purple-400 text-[20px]">palette</span>
             <span className="text-xs font-semibold text-white">Tailwind CSS</span>
           </motion.div>
 
-          {/* 14+ Years Experience Badge */}
-          <motion.div 
+          {/* Experience Badge */}
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.6 }}
@@ -126,22 +126,22 @@ export default function Hero() {
               <span className="material-symbols-outlined text-[22px]">verified</span>
             </div>
             <div>
-              <div className="text-lg text-[#38bdf8] font-bold leading-none font-mono">14+ Years</div>
-              <div className="text-[11px] uppercase tracking-wider text-slate-300 font-medium mt-0.5">Front-End Mastery</div>
+              <div className="text-lg text-[#38bdf8] font-bold leading-none font-mono">Frontend</div>
+              <div className="text-[11px] uppercase tracking-wider text-slate-300 font-medium mt-0.5">UI/UX & Web Dev</div>
             </div>
           </motion.div>
 
         </motion.div>
 
         {/* Left Column (Content): Mobile: 2nd, Desktop: 1st */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: -40 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
           className="lg:col-span-7 order-2 lg:order-1 flex flex-col space-y-6 sm:space-y-8"
         >
           {/* Status pill tag */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
@@ -165,26 +165,26 @@ export default function Hero() {
               </span>
               <span className="w-1 h-6 sm:h-9 bg-[#38bdf8] animate-pulse inline-block"></span>
               <span className="px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 text-xs font-mono font-medium flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span> React.js
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse self-center"></span> React.js • Learning
               </span>
             </div>
           </div>
 
           <p className="text-base sm:text-lg text-slate-300 max-w-2xl leading-relaxed font-normal">
-            Building modern, responsive, and high-performance digital experiences with 14+ years of front-end expertise. Specializing in component-driven user interfaces and cross-browser web engineering.
+            Building modern, responsive, and high-performance digital experiences with clean front-end code and user-focused UI/UX design.
           </p>
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-2">
-            <a 
-              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full text-base font-semibold text-slate-950 bg-[#38bdf8] hover:bg-[#7dd3fc] active:scale-95 transition-all shadow-[0_0_25px_rgba(56,189,248,0.45)]" 
+            <a
+              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full text-base font-semibold text-slate-950 bg-[#38bdf8] hover:bg-[#7dd3fc] active:scale-95 transition-all shadow-[0_0_25px_rgba(56,189,248,0.45)] cursor-pointer"
               href="#projects"
             >
               View My Work
               <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
             </a>
-            <a 
-              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full text-base font-semibold text-white bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 active:scale-95 transition-all shadow-md" 
+            <a
+              className="inline-flex items-center justify-center gap-2.5 px-8 py-3.5 rounded-full text-base font-semibold text-white bg-slate-800/80 hover:bg-slate-700/80 border border-white/10 active:scale-95 transition-all shadow-md cursor-pointer"
               href="#contact"
             >
               Get in Touch
