@@ -43,26 +43,26 @@ export default function AIChatBot() {
 
     const SYSTEM_INSTRUCTION = `You are "Indrajeet AI Agent", an advanced, friendly, and smart AI assistant on Indrajeet Kumar Sah's portfolio website.
 About Indrajeet Kumar Sah:
-- Role: Front-End Developer & Senior UI/UX Designer (Kolkata, West Bengal, India).
-- Technical Skills: React.js, JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, Figma (UI/UX Design, Wireframing, Prototyping, Design Systems), Python, System Design, Git/GitHub, and AI API Integrations.
-- Experience: Completed Web Development Internship at Clinchsoft Technologies; builds high-performance responsive web applications and modern UI/UX systems.
-- Featured Projects: HireReady AI (ATS Resume Diagnostics & Voice Mock Interviewer), AI-Powered Portfolio with Voice Agent, and Figma UI/UX Design Systems.
+- Role: Front-End Developer & UI/UX Designer (Kolkata, West Bengal, India).
+- Technical Skills: React.js, JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, UI/UX Design, Python, System Design, Git/GitHub, and AI API Integrations.
+- Experience: Completed Web Development Internship at Clinchsoft Technologies; builds high-performance responsive web applications and modern UI interfaces.
+- Featured Projects: HireReady AI (ATS Resume Diagnostics & Voice Mock Interviewer), AI-Powered Portfolio with Voice Agent, and Responsive Web Applications.
 - Contact: Email: indrakumar2014.sah@gmail.com | Phone: +91-7890330625 | GitHub: github.com/indrajeet87sah-glitch.
 
 CRITICAL RULES:
-1. Directly and smartly answer any question (coding, UI/UX, career, HR questions, or general knowledge) in 2 to 3 concise sentences.
-2. If the user writes or speaks in Hindi or Hinglish, reply in clean conversational Hindi using Devanagari script so the Hindi voice reads it smoothly!
-3. If the user writes in English, reply in natural English.`;
+1. Directly and smartly answer any question (coding, frontend, career, HR questions, or general knowledge) in 2 to 3 concise sentences.
+2. NEVER share any Figma link.
+3. If the user writes or speaks in Hindi or Hinglish, reply in clean conversational Hindi using Devanagari script so the Hindi voice reads it smoothly!
+4. If the user writes in English, reply in natural English.`;
 
     const SUGGESTIONS = [
         { label: "Top Skills 💻", prompt: "Indrajeet ke top technical skills kya hain?" },
         { label: "Best Projects 🚀", prompt: "Show me Indrajeet's best projects." },
-        { label: "Why Hire Him? 🌟", prompt: "Why should a company hire Indrajeet for a Frontend or UI/UX role?" },
+        { label: "Why Hire Him? 🌟", prompt: "Why should a company hire Indrajeet for a Frontend role?" },
         { label: "Experience 💼", prompt: "Indrajeet ka web development internship experience kaisa hai?" },
         { label: "Contact Info 📬", prompt: "Indrajeet se contact kaise karein?" }
     ];
 
-    // Save chat history in session
     useEffect(() => {
         try {
             sessionStorage.setItem("indrajeet_chat_history", JSON.stringify(messages));
@@ -122,7 +122,7 @@ CRITICAL RULES:
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // 🧭 AI AGENT FEATURE 1: Auto-Scroll Portfolio Page Sections
+    // Auto-Scroll Portfolio Page Sections
     const triggerPageNavigation = (queryText) => {
         const q = queryText.toLowerCase();
         const sectionMap = [
@@ -148,13 +148,13 @@ CRITICAL RULES:
         }
     };
 
-    // 🃏 AI AGENT FEATURE 2: Detect Which Smart Action Buttons to Show
+    // Detect Which Smart Action Buttons to Show (No Figma Link!)
     const detectActionCard = (userQ, aiReply) => {
         const combined = `${userQ}${aiReply}`.toLowerCase();
         if (combined.includes("contact") || combined.includes("email") || combined.includes("7890330625") || combined.includes("संपर्क") || combined.includes("hire")) {
             return "contact_card";
         }
-        if (combined.includes("project") || combined.includes("github") || combined.includes("figma") || combined.includes("प्रोजेक्ट")) {
+        if (combined.includes("project") || combined.includes("github") || combined.includes("प्रोजेक्ट")) {
             return "project_card";
         }
         return null;
@@ -212,7 +212,7 @@ CRITICAL RULES:
         };
     };
 
-    // 🔊 Natural Sentence-by-Sentence Voice Output
+    // Natural Sentence-by-Sentence Voice Output
     const speakReply = (speechText, forceSpeak = false) => {
         if ((!voiceEnabled && !forceSpeak) || !("speechSynthesis" in window)) return;
 
@@ -260,7 +260,7 @@ CRITICAL RULES:
         });
     };
 
-    // 🔍 Dynamic Gemini Model Resolver
+    // Dynamic Gemini Model Resolver
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const contents = [
             { role: "user", parts: [{ text: SYSTEM_INSTRUCTION }] },
@@ -333,7 +333,7 @@ CRITICAL RULES:
         throw new Error("No active Gemini model responded.");
     };
 
-    // 💬 Handle Send Message + Page Navigation + Action Cards
+    // Handle Send Message
     const handleSend = async (e, customPrompt = null) => {
         if (e) e.preventDefault();
 
@@ -342,7 +342,6 @@ CRITICAL RULES:
 
         stopAllAudio();
 
-        // Allow instant API key setup inside chat
         if (textToSend.startsWith("AIzaSy")) {
             localStorage.setItem("indrajeet_ai_key", textToSend);
             setInput("");
@@ -352,7 +351,6 @@ CRITICAL RULES:
             return;
         }
 
-        // Scroll page if user asked for a section
         triggerPageNavigation(textToSend);
 
         const updatedMessages = [...messages, { role: "user", text: textToSend }];
@@ -384,7 +382,7 @@ CRITICAL RULES:
         }
     };
 
-    // 🎙️ Mobile & Desktop Mic with Auto-Send
+    // Mobile & Desktop Mic with Auto-Send
     const startListening = async () => {
         setStatusNote("");
         stopAllAudio();
@@ -500,7 +498,6 @@ CRITICAL RULES:
                             </div>
 
                             <div className="flex items-center gap-2">
-                                {/* Voice Mute/Unmute Toggle */}
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -523,7 +520,6 @@ CRITICAL RULES:
                                     {voiceEnabled ? "🔊" : "🔇"}
                                 </button>
 
-                                {/* Reset Chat Button */}
                                 <button
                                     type="button"
                                     onClick={clearChat}
@@ -563,7 +559,7 @@ CRITICAL RULES:
                                         {m.text}
                                     </div>
 
-                                    {/* Smart Interactive Action Cards inside Chat */}
+                                    {/* Smart Action Cards (Only Contact & GitHub - No Figma Link!) */}
                                     {m.role === "model" && m.action === "contact_card" && (
                                         <div className="mt-2 flex flex-wrap gap-1.5 max-w-[85%]">
                                             <a
@@ -589,16 +585,15 @@ CRITICAL RULES:
                                                 rel="noreferrer"
                                                 className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
                                             >
-                                                💻 View GitHub
+                                                💻 View GitHub Projects
                                             </a>
-                                            <a
-                                                href="https://www.figma.com/design/15uvawBxskDphVIi6Sb699/Indrajeet-Kumar-Sah---UI-UX-Portfolio"
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
+                                            <button
+                                                type="button"
+                                                onClick={() => triggerPageNavigation("projects")}
+                                                className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer"
                                             >
-                                                🎨 Figma UI/UX Portfolio
-                                            </a>
+                                                🚀 Scroll to Projects
+                                            </button>
                                         </div>
                                     )}
                                 </div>
