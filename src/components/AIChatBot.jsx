@@ -7,7 +7,7 @@ export default function AIChatBot() {
     const [isHovered, setIsHovered] = useState(false);
     const [voiceEnabled, setVoiceEnabled] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [statusNote, setStatusNote] = useState(""); // Shows exact Mic/Voice status inside chat
+    const [statusNote, setStatusNote] = useState("");
     const [messages, setMessages] = useState([
         {
             role: "model",
@@ -40,20 +40,15 @@ export default function AIChatBot() {
         { label: "Contact Info 📬", prompt: "Indrajeet se connect ya contact kaise karein?" }
     ];
 
-    // Pre-load Browser Voices (Fixes Chrome empty voice list bug!)
+    // Load available voices for mobile & desktop
     useEffect(() => {
         if (!("speechSynthesis" in window)) return;
-
         const loadVoices = () => {
             const available = window.speechSynthesis.getVoices();
-            if (available.length > 0) {
-                voicesRef.current = available;
-            }
+            if (available.length > 0) voicesRef.current = available;
         };
-
         loadVoices();
         window.speechSynthesis.onvoiceschanged = loadVoices;
-
         return () => {
             window.speechSynthesis.onvoiceschanged = null;
         };
@@ -95,17 +90,17 @@ export default function AIChatBot() {
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // 🔓 UNLOCK CHROME AUDIO ON USER CLICK (Crucial fix for async API calls!)
+    // Unlock Mobile & Chrome Audio Engine on tap
     const unlockAudioEngine = () => {
         if (!("speechSynthesis" in window)) return;
         window.speechSynthesis.cancel();
         window.speechSynthesis.resume();
-        const silentUnlock = new SpeechSynthesisUtterance("");
-        silentUnlock.volume = 0;
-        window.speechSynthesis.speak(silentUnlock);
+        const silent = new SpeechSynthesisUtterance("");
+        silent.volume = 0;
+        window.speechSynthesis.speak(silent);
     };
 
-    // 🔊 GUARANTEED AI TEXT-TO-SPEECH
+    // 🔊 AI Voice Output (Mobile + Desktop)
     const speakReply = (text, forceSpeak = false) => {
         if ((!voiceEnabled && !forceSpeak) || !("speechSynthesis" in window)) return;
 
@@ -141,7 +136,6 @@ export default function AIChatBot() {
             const utterance = new SpeechSynthesisUtterance(cleanSpeech);
             utterance.lang = hasHindiScript ? "hi-IN" : "en-IN";
             utterance.rate = 1.0;
-            utterance.volume = 1.0;
 
             const voices = voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
             if (hasHindiScript) {
@@ -162,81 +156,9 @@ export default function AIChatBot() {
 
             setTimeout(() => {
                 window.speechSynthesis.speak(utterance);
-            }, 80);
+            }, 60);
         } catch (err) {
-            console.error("TTS Error:", err);
             setIsSpeaking(false);
-        }
-    };
-
-    // 🎙️ GUARANTEED VOICE TYPING (MIC)
-    const startListening = () => {
-        setStatusNote("");
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-        if (!SpeechRecognition) {
-            setStatusNote("⚠️ Voice typing sirf Google Chrome ya Microsoft Edge mein chalta hai.");
-            return;
-        }
-
-        if ("speechSynthesis" in window) {
-            window.speechSynthesis.cancel();
-            setIsSpeaking(false);
-        }
-
-        if (isListening) {
-            if (recognitionRef.current) {
-                try {
-                    recognitionRef.current.stop();
-                } catch (e) {}
-            }
-            setIsListening(false);
-            return;
-        }
-
-        try {
-            const recognition = new SpeechRecognition();
-            recognitionRef.current = recognition;
-
-            recognition.lang = "en-IN";
-            recognition.continuous = false;
-            recognition.interimResults = true;
-
-            const baseInput = input.trim();
-
-            recognition.onstart = () => {
-                setIsListening(true);
-                setStatusNote("🎙️ Mic ON hai... Ab boliye!");
-            };
-
-            recognition.onresult = (event) => {
-                let transcript = "";
-                for (let i = 0; i < event.results.length; i++) {
-                    transcript += event.results[i][0].transcript;
-                }
-                setInput(baseInput ? `${baseInput} ${transcript}` : transcript);
-            };
-
-            recognition.onerror = (event) => {
-                setIsListening(false);
-                if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-                    setStatusNote("🔒 Mic Permission Blocked! URL bar ke paas Lock icon daba kar Microphone 'Allow' karein.");
-                } else if (event.error === "no-speech") {
-                    setStatusNote("🎙️ Koi aawaz nahi sunai di. Dobara mic daba kar bolein.");
-                } else {
-                    setStatusNote(`⚠️ Mic Error (${event.error}): Kripya Google Chrome use karein.`);
-                }
-            };
-
-            recognition.onend = () => {
-                setIsListening(false);
-                setTimeout(() => setStatusNote(""), 2500);
-            };
-
-            recognition.start();
-        } catch (err) {
-            setIsListening(false);
-            setStatusNote("⚠️ Mic start nahi ho paya. Browser permission check karein.");
         }
     };
 
@@ -258,20 +180,19 @@ export default function AIChatBot() {
         return "Hello! Main Indrajeet Kumar Sah ka Portfolio AI Assistant hoon. Aap mujhse unke React & UI/UX skills, projects, internship experience, ya contact details ke baare mein kuch bhi pooch sakte hain!";
     };
 
-    // 💬 Handle Send + Instant Audio Unlock
+    // 💬 Send Message Function
     const handleSend = async (e, customPrompt = null) => {
         if (e) e.preventDefault();
 
-        const textToSend = customPrompt || input.trim();
+        const textToSend = (customPrompt || input).trim();
         if (!textToSend || loading) return;
 
-        // Unlock browser speech engine immediately on click!
         if (voiceEnabled) {
             unlockAudioEngine();
         }
 
         setMessages((prev) => [...prev, { role: "user", text: textToSend }]);
-        if (!customPrompt) setInput("");
+        setInput("");
         setLoading(true);
         setStatusNote("");
 
@@ -315,13 +236,107 @@ export default function AIChatBot() {
 
         setMessages((prev) => [...prev, { role: "model", text: responseText }]);
         setLoading(false);
-
-        // Speak the AI reply out loud
         speakReply(responseText);
+    };
+
+    // 🎙️ CHATGPT-STYLE MOBILE & DESKTOP MIC (Auto Permission Popup + Auto Send!)
+    const startListening = async () => {
+        setStatusNote("");
+
+        // Stop AI speaking if user taps mic
+        if ("speechSynthesis" in window) {
+            window.speechSynthesis.cancel();
+            setIsSpeaking(false);
+        }
+
+        // Unlock audio so AI can speak back automatically after user finishes speaking
+        if (voiceEnabled) {
+            unlockAudioEngine();
+        }
+
+        // If already listening, stop it
+        if (isListening) {
+            if (recognitionRef.current) {
+                try {
+                    recognitionRef.current.stop();
+                } catch (e) {}
+            }
+            setIsListening(false);
+            return;
+        }
+
+        // Check if user opened via insecure HTTP IP on mobile (e.g. 192.168.x.x)
+        if (!window.isSecureContext && window.location.hostname !== "localhost") {
+            setStatusNote("⚠️ Mobile par Mic sirf HTTPS (Live Vercel/GitHub Link) par chalta hai, IP address par nahi.");
+            return;
+        }
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            setStatusNote("⚠️ Kripya Mobile par Chrome ya Safari browser use karein.");
+            return;
+        }
+
+        // Step 1: Trigger Native Mobile "Allow Microphone?" Popup (Like ChatGPT!)
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Release hardware stream immediately so SpeechRecognition can use the mic on Android
+                stream.getTracks().forEach((track) => track.stop());
+            } catch (permErr) {
+                setStatusNote("⚠️ Mic Allow nahi hua. Browser ke 3-dots (⋮) > Settings > Site Settings > Microphone mein Allow karein.");
+                return;
+            }
+        }
+
+        // Step 2: Start Speech Recognition & Auto-Send when done speaking
+        try {
+            const recognition = new SpeechRecognition();
+            recognitionRef.current = recognition;
+
+            recognition.lang = "en-IN"; // Supports Hindi, Hinglish & English
+            recognition.continuous = false;
+            recognition.interimResults = false; // MUST be false for Android Chrome reliability!
+
+            recognition.onstart = () => {
+                setIsListening(true);
+                setStatusNote("🎙️ Boliye... (Bolna rukte hi message apne aap chala jayega)");
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0]?.[0]?.transcript?.trim();
+                if (transcript) {
+                    setIsListening(false);
+                    setStatusNote("");
+                    // 🚀 ChatGPT Style: Auto-send message immediately after speaking!
+                    handleSend(null, transcript);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                setIsListening(false);
+                if (event.error === "no-speech") {
+                    setStatusNote("🎙️ Aawaz nahi aayi. Mic daba kar turant bolein.");
+                } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
+                    setStatusNote("⚠️ Browser mein Mic permission Off hai. Site settings se Allow karein.");
+                } else {
+                    setStatusNote("");
+                }
+            };
+
+            recognition.onend = () => {
+                setIsListening(false);
+            };
+
+            recognition.start();
+        } catch (err) {
+            setIsListening(false);
+        }
     };
 
     return (
         <div className="fixed bottom-6 right-5 sm:right-6 z-50 flex flex-col items-end">
+            {/* Chat Window */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -329,10 +344,10 @@ export default function AIChatBot() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
                         transition={{ duration: 0.25 }}
-                        className="mb-4 w-[330px] sm:w-[380px] h-[490px] bg-[#121724] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-md"
+                        className="mb-4 w-[330px] sm:w-[380px] h-[480px] bg-[#121724] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-md"
                     >
                         {/* Header */}
-                        <div className="px-5 py-3.5 bg-[#1a2133] border-b border-white/5 flex items-center justify-between">
+                        <div className="px-5 py-4 bg-[#1a2133] border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-[#72bbf6]/20 text-[#72bbf6] flex items-center justify-center font-bold text-sm">
                                     AI
@@ -340,13 +355,13 @@ export default function AIChatBot() {
                                 <div>
                                     <h4 className="text-white text-sm font-semibold leading-tight">Indrajeet Assistant</h4>
                                     <p className="text-slate-400 text-[11px]">
-                                        {isSpeaking ? "🔊 Speaking..." : "Powered by Gemini • Voice AI"}
+                                        {isSpeaking ? "🔊 Speaking..." : "Powered by Gemini"}
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                {/* Direct SVG Speaker Toggle Button */}
+                            <div className="flex items-center gap-2.5">
+                                {/* Voice Mute/Unmute Toggle */}
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -356,34 +371,32 @@ export default function AIChatBot() {
                                             setVoiceEnabled(false);
                                         } else {
                                             setVoiceEnabled(true);
-                                            const lastModelMsg = [...messages].reverse().find((m) => m.role === "model");
-                                            if (lastModelMsg) speakReply(lastModelMsg.text, true);
+                                            const lastMsg = [...messages].reverse().find((m) => m.role === "model");
+                                            if (lastMsg) speakReply(lastMsg.text, true);
                                         }
                                     }}
-                                    className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 border transition-colors cursor-pointer ${
+                                    className={`text-xs px-2 py-0.5 rounded-full border transition cursor-pointer ${
                                         voiceEnabled
-                                            ? "bg-[#72bbf6]/15 text-[#72bbf6] border-[#72bbf6]/30"
-                                            : "bg-white/5 text-slate-400 border-white/10"
+                                            ? "border-[#72bbf6]/40 text-[#72bbf6] bg-[#72bbf6]/10"
+                                            : "border-white/10 text-slate-400"
                                     }`}
-                                    title="Toggle Voice Output"
                                 >
-                                    {voiceEnabled ? "🔊 ON" : "🔇 OFF"}
+                                    {voiceEnabled ? "🔊" : "🔇"}
                                 </button>
 
-                                {/* Close Button */}
                                 <button
                                     type="button"
                                     onClick={() => setIsOpen(false)}
-                                    className="text-slate-400 hover:text-white p-1 cursor-pointer text-base font-bold"
+                                    className="text-slate-400 hover:text-white cursor-pointer"
                                 >
-                                    ✕
+                                    <span className="material-symbols-outlined text-[18px]">close</span>
                                 </button>
                             </div>
                         </div>
 
-                        {/* Status Notification Bar (If Mic Blocked or Listening) */}
+                        {/* Helpful Status Bar */}
                         {statusNote && (
-                            <div className="bg-amber-500/15 border-b border-amber-500/30 px-3.5 py-1.5 text-[11px] text-amber-300 font-medium">
+                            <div className="bg-[#72bbf6]/15 border-b border-[#72bbf6]/30 px-3.5 py-1.5 text-[11px] text-[#72bbf6] font-medium">
                                 {statusNote}
                             </div>
                         )}
@@ -393,7 +406,7 @@ export default function AIChatBot() {
                             {messages.map((m, idx) => (
                                 <div key={idx} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                                     <div
-                                        className={`max-w-[84%] px-3.5 py-2.5 rounded-2xl ${
+                                        className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl ${
                                             m.role === "user"
                                                 ? "bg-[#72bbf6] text-[#090d16] font-medium rounded-br-none"
                                                 : "bg-[#1e2538] text-slate-200 border border-white/5 rounded-bl-none"
@@ -401,17 +414,6 @@ export default function AIChatBot() {
                                     >
                                         {m.text}
                                     </div>
-
-                                    {/* Manual "🔊 Listen" button under every AI message */}
-                                    {m.role === "model" && (
-                                        <button
-                                            type="button"
-                                            onClick={() => speakReply(m.text, true)}
-                                            className="mt-1 text-[10px] text-slate-400 hover:text-[#72bbf6] flex items-center gap-1 px-1 cursor-pointer"
-                                        >
-                                            🔊 Listen
-                                        </button>
-                                    )}
                                 </div>
                             ))}
                             {loading && (
@@ -447,47 +449,39 @@ export default function AIChatBot() {
                             ))}
                         </div>
 
-                        {/* Input Form with Direct SVG Mic & Send Icons */}
+                        {/* Input Form */}
                         <form onSubmit={(e) => handleSend(e)} className="p-3 bg-[#1a2133] border-t border-white/5 flex items-center gap-2">
                             <div className="flex-1 relative flex items-center">
                                 <input
                                     type="text"
-                                    placeholder={isListening ? "Listening... Speak now 🎙️" : "Ask anything..."}
+                                    placeholder={isListening ? "Listening... Boliye 🎙️" : "Ask anything..."}
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border transition-all ${
                                         isListening
-                                            ? "border-red-400 placeholder-red-400"
+                                            ? "border-red-400/70 placeholder-red-400"
                                             : "border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500"
                                     }`}
                                 />
-                                {/* Direct SVG Mic Button */}
                                 <button
                                     type="button"
                                     onClick={startListening}
-                                    className={`absolute right-2.5 p-1.5 rounded-full transition-colors cursor-pointer ${
-                                        isListening ? "text-red-400 bg-red-500/20 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"
+                                    className={`absolute right-3 transition-colors cursor-pointer ${
+                                        isListening ? "text-red-400 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"
                                     }`}
-                                    title="Click to Speak"
+                                    title="Tap & Speak"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                                        <line x1="12" x2="12" y1="19" y2="22" />
-                                    </svg>
+                                    <span className="material-symbols-outlined text-[18px]">
+                                        mic
+                                    </span>
                                 </button>
                             </div>
-
-                            {/* Direct SVG Send Button */}
                             <button
                                 type="submit"
                                 disabled={loading || !input.trim()}
                                 className="w-9 h-9 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] disabled:opacity-50 text-[#090d16] flex items-center justify-center transition-all cursor-pointer shrink-0"
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="22" x2="11" y1="2" y2="13" />
-                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                                </svg>
+                                <span className="material-symbols-outlined text-[18px]">send</span>
                             </button>
                         </form>
                     </motion.div>
@@ -500,9 +494,11 @@ export default function AIChatBot() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsOpen((prev) => !prev)}
-                className="w-14 h-14 rounded-full bg-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_25px_rgba(114,187,246,0.4)] cursor-pointer focus:outline-none font-bold text-lg"
+                className="w-14 h-14 rounded-full bg-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_25px_rgba(114,187,246,0.4)] cursor-pointer focus:outline-none"
             >
-                {isOpen ? "✕" : "AI"}
+                <span className="material-symbols-outlined text-[26px]">
+                    {isOpen ? "close" : "smart_toy"}
+                </span>
             </motion.button>
         </div>
     );
