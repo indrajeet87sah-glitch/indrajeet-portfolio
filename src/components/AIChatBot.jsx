@@ -1,11 +1,11 @@
 // src/components/AIChatBot.jsx
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default function AIChatBot() {
     const [isOpen, setIsOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
+    const [voiceEnabled, setVoiceEnabled] = useState(true);
     const [messages, setMessages] = useState([
         {
             role: "model",
@@ -24,7 +24,7 @@ export default function AIChatBot() {
 
     const SYSTEM_INSTRUCTION =
         "You are a friendly, fast, and helpful AI assistant on Indrajeet Kumar Sah's portfolio website. " +
-        "Indrajeet is a Front-End Developer skilled in React, Tailwind CSS, JavaScript, and UI engineering. " +
+        "Indrajeet is a Front-End Developer & UI/UX Designer skilled in React, Tailwind CSS, JavaScript, Figma, and UI engineering. " +
         "Guidelines: " +
         "1. Answer user queries politely, smartly, and concisely in 2 to 3 sentences max. " +
         "2. Reply in the exact same language used by the user (Hindi, Hinglish, English, etc.). " +
@@ -37,9 +37,11 @@ export default function AIChatBot() {
         { label: "Contact Info 📬", prompt: "Indrajeet se connect ya contact kaise karein?" }
     ];
 
-    // Custom event jab chat open/close ho
     useEffect(() => {
         window.dispatchEvent(new CustomEvent("chatStateChange", { detail: isOpen }));
+        if (!isOpen && "speechSynthesis" in window) {
+            window.speechSynthesis.cancel();
+        }
     }, [isOpen]);
 
     // Smooth auto-scrolling chips
@@ -70,18 +72,68 @@ export default function AIChatBot() {
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // 1. IMPROVED Voice Typing Function (Live Typing + Mobile/Desktop Fix)
+    // 🔊 AI Text-to-Speech Function (Bolkar Jawab Sunane Wala Feature)
+    const speakReply = (text) => {
+        if (!voiceEnabled || !("speechSynthesis" in window)) return;
+
+        window.speechSynthesis.cancel();
+
+        const hasHindiScript = /[\u0900-\u097F]/.test(text);
+        let speechString = text;
+
+        const phonetics = [
+            [/Indrajeet Kumar Sah/gi, hasHindiScript ? "इंद्रजीत कुमार साह" : "Indrajeet Kumar Sah"],
+            [/Indrajeet/gi, hasHindiScript ? "इंद्रजीत" : "Indrajeet"],
+            [/UI\/UX/gi, hasHindiScript ? "यूआई यूएक्स" : "UI UX"],
+            [/Figma/gi, hasHindiScript ? "फ़िग्मा" : "Figma"],
+            [/React\.js/gi, hasHindiScript ? "रिएक्ट जेएस" : "React JS"],
+            [/Tailwind CSS/gi, hasHindiScript ? "टेलविंड सीएसएस" : "Tailwind CSS"],
+            [/JavaScript/gi, hasHindiScript ? "जावास्क्रिप्ट" : "JavaScript"],
+            [/Front-End/gi, hasHindiScript ? "फ्रंटएंड" : "Frontend"]
+        ];
+
+        phonetics.forEach(([regex, word]) => {
+            speechString = speechString.replace(regex, word);
+        });
+
+        const cleanSpeech = speechString
+            .replace(/[*#`_~•💻🚀💼📬🎙️]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
+        const utterance = new SpeechSynthesisUtterance(cleanSpeech);
+        utterance.lang = hasHindiScript ? "hi-IN" : "en-IN";
+        utterance.rate = 1.0;
+
+        const voices = window.speechSynthesis.getVoices();
+        if (hasHindiScript) {
+            const hindiVoice =
+                voices.find((v) => v.name.includes("Google हिन्दी") || v.name.includes("Swara") || v.name.includes("Madhur")) ||
+                voices.find((v) => v.lang.includes("hi"));
+            if (hindiVoice) utterance.voice = hindiVoice;
+        } else {
+            const indianEngVoice = voices.find((v) => v.lang === "en-IN") || voices.find((v) => v.lang.includes("en"));
+            if (indianEngVoice) utterance.voice = indianEngVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+    };
+
+    // 🎙️ Working Voice Typing Function
     const startListening = () => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
-            alert("Aapke browser mein Voice Typing support nahi hai. Kripya Google Chrome ya Edge browser use karein.");
+            alert("Please use Google Chrome or Microsoft Edge for Voice Input support!");
             return;
         }
 
-        // Agar mic pehle se on hai, toh click karne par band karein
-        if (isListening && recognitionRef.current) {
-            recognitionRef.current.stop();
+        if ("speechSynthesis" in window) {
+            window.speechSynthesis.cancel();
+        }
+
+        if (isListening) {
+            if (recognitionRef.current) recognitionRef.current.stop();
             setIsListening(false);
             return;
         }
@@ -90,34 +142,25 @@ export default function AIChatBot() {
             const recognition = new SpeechRecognition();
             recognitionRef.current = recognition;
 
-            recognition.lang = "en-IN"; // Hindi + English (Hinglish) dono samjhega
+            recognition.lang = "en-IN";
             recognition.continuous = false;
-            recognition.interimResults = true; // Bolte waqt live type karega!
-
-            // Pehle se input box mein jo text hai usko save rakhein
-            const previousInput = input.trim();
+            recognition.interimResults = false;
 
             recognition.onstart = () => {
                 setIsListening(true);
             };
 
             recognition.onresult = (event) => {
-                let currentTranscript = "";
-                for (let i = 0; i < event.results.length; i++) {
-                    currentTranscript += event.results[i][0].transcript;
-                }
-                // Live text update in input box
-                setInput(previousInput ? `${previousInput} ${currentTranscript}` : currentTranscript);
+                const transcript = event.results[0][0].transcript;
+                setInput((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript));
+                setIsListening(false);
             };
 
             recognition.onerror = (event) => {
                 console.error("Mic Error:", event.error);
                 setIsListening(false);
-
                 if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-                    alert("Mic permission block hai! Browser ke address bar mein URL ke paas (🔒) par click karke Microphone ko 'Allow' karein.");
-                } else if (event.error === "network") {
-                    alert("Browser voice service block kar raha hai (Brave browser mein yeh issue aata hai, kripya Chrome use karein).");
+                    alert("Mic permission blocked! Address bar mein Lock (🔒) icon par click karke Microphone Allow karein.");
                 }
             };
 
@@ -127,12 +170,30 @@ export default function AIChatBot() {
 
             recognition.start();
         } catch (err) {
-            console.error("Mic start crash:", err);
+            console.error("Mic start error:", err);
             setIsListening(false);
         }
     };
 
-    // 2. Message Send Function (With Auto-Fallback so it never fails)
+    // 🧠 Smart Portfolio Fallback (Agar API key ya internet mein koi bhi issue aaye toh bhi 100% sahi jawab dega)
+    const getPortfolioFallbackReply = (query) => {
+        const q = query.toLowerCase();
+        if (q.includes("skill") || q.includes("tech")) {
+            return "Indrajeet ke top skills mein React.js, JavaScript (ES6+), Tailwind CSS, HTML5/CSS3, Figma (UI/UX Design), Python, aur System Design shamil hain.";
+        }
+        if (q.includes("project")) {
+            return "Indrajeet ke best projects mein HireReady AI (ATS Resume Analyzer & Voice Interviewer), AI-Powered Portfolio Website, aur Modern Responsive Figma UI/UX Design Systems shamil hain.";
+        }
+        if (q.includes("experience") || q.includes("background") || q.includes("intern")) {
+            return "Indrajeet ne Clinchsoft Technologies mein Web Development Internship poori ki hai aur unhe modern Front-End React applications aur UI/UX interfaces banane ka strong practical experience hai.";
+        }
+        if (q.includes("contact") || q.includes("connect") || q.includes("hire") || q.includes("email")) {
+            return "Aap Indrajeet Kumar Sah se seedha Email (indrakumar2014.sah@gmail.com) ya Phone (+91-7890330625) par sampark kar sakte hain, ya portfolio ke Contact form se message bhej sakte hain!";
+        }
+        return "Hello! Main Indrajeet Kumar Sah ka Portfolio AI Assistant hoon. Aap mujhse unke React & UI/UX skills, projects, internship experience, ya contact details ke baare mein kuch bhi pooch sakte hain!";
+    };
+
+    // 💬 Direct REST Fetch with Auto-Model Detection (Bypasses @google/generative-ai bugs!)
     const handleSend = async (e, customPrompt = null) => {
         if (e) e.preventDefault();
 
@@ -143,52 +204,85 @@ export default function AIChatBot() {
         if (!customPrompt) setInput("");
         setLoading(true);
 
-        try {
-            if (!API_KEY) {
-                throw new Error("API_KEY_MISSING");
-            }
+        const fullPrompt = `${SYSTEM_INSTRUCTION}\n\nUser Question: ${textToSend}`;
+        let responseText = "";
 
-            const genAI = new GoogleGenerativeAI(API_KEY);
-            const fullPrompt = `${SYSTEM_INSTRUCTION}\n\nUser Question: ${textToSend}`;
+        if (API_KEY && API_KEY.trim()) {
+            const cleanKey = API_KEY.trim();
+            const candidateModels = [
+                "gemini-3.8-flash",
+                "gemini-3.8-flash-preview",
+                "gemini-3-flash",
+                "gemini-3.0-flash",
+                "gemini-2.5-flash"
+            ];
 
-            let responseText = "";
-            // Models list: agar pehla na chale toh dusra try karega
-            const modelsToTry = ["gemini-flash-latest", "gemini-3.8-flash", "gemini-3-flash-preview"];
-            let lastError = null;
-
-            for (const modelName of modelsToTry) {
+            // 1. Try direct fetch on latest models
+            for (const modelName of candidateModels) {
                 try {
-                    const model = genAI.getGenerativeModel({ model: modelName });
-                    const result = await model.generateContent(fullPrompt);
-                    responseText = result.response.text();
-                    if (responseText) break; // Agar jawab mil gaya toh loop rok do
+                    const res = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                contents: [{ parts: [{ text: fullPrompt }] }]
+                            })
+                        }
+                    );
+                    const data = await res.json();
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (text) {
+                        responseText = text.trim();
+                        break;
+                    }
                 } catch (err) {
-                    lastError = err;
+                    // Continue to next model
                 }
             }
 
-            if (!responseText && lastError) {
-                throw lastError;
+            // 2. If still empty, dynamically fetch available flash model from Google API
+            if (!responseText) {
+                try {
+                    const listRes = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`
+                    );
+                    const listData = await listRes.json();
+                    const validModel = listData?.models?.find(
+                        (m) =>
+                            m.name.includes("flash") &&
+                            m.supportedGenerationMethods?.includes("generateContent")
+                    );
+
+                    if (validModel) {
+                        const genRes = await fetch(
+                            `https://generativelanguage.googleapis.com/v1beta/${validModel.name}:generateContent?key=${cleanKey}`,
+                            {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    contents: [{ parts: [{ text: fullPrompt }] }]
+                                })
+                            }
+                        );
+                        const genData = await genRes.json();
+                        const text = genData?.candidates?.[0]?.content?.parts?.[0]?.text;
+                        if (text) responseText = text.trim();
+                    }
+                } catch (err) {
+                    console.warn("Dynamic model lookup fallback triggered.");
+                }
             }
-
-            setMessages((prev) => [...prev, { role: "model", text: responseText }]);
-        } catch (error) {
-            console.error("Gemini Exact Error:", error);
-
-            let errorMsg = "Sorry, abhi network ya API key mein kuch issue aa raha hai.";
-            if (error.message === "API_KEY_MISSING") {
-                errorMsg = "Error: .env file mein VITE_GEMINI_API_KEY nahi mili! File check karke server restart karein.";
-            } else if (error.message) {
-                errorMsg = `API Error: ${error.message}`;
-            }
-
-            setMessages((prev) => [
-                ...prev,
-                { role: "model", text: errorMsg }
-            ]);
-        } finally {
-            setLoading(false);
         }
+
+        // 3. If API key is missing or quota/model fails, use Smart Portfolio Fallback (Never shows ugly error!)
+        if (!responseText) {
+            responseText = getPortfolioFallbackReply(textToSend);
+        }
+
+        setMessages((prev) => [...prev, { role: "model", text: responseText }]);
+        speakReply(responseText);
+        setLoading(false);
     };
 
     return (
@@ -211,16 +305,36 @@ export default function AIChatBot() {
                                 </div>
                                 <div>
                                     <h4 className="text-white text-sm font-semibold leading-tight">Indrajeet Assistant</h4>
-                                    <p className="text-slate-400 text-[11px]">Powered by Gemini</p>
+                                    <p className="text-slate-400 text-[11px]">Powered by Gemini • Voice AI</p>
                                 </div>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsOpen(false)}
-                                className="text-slate-400 hover:text-white cursor-pointer"
-                            >
-                                <span className="material-symbols-outlined text-[18px]">close</span>
-                            </button>
+
+                            <div className="flex items-center gap-2">
+                                {/* Voice Mute / Unmute Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+                                        setVoiceEnabled((prev) => !prev);
+                                    }}
+                                    className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                                        voiceEnabled ? "text-[#72bbf6] hover:text-white" : "text-slate-500 hover:text-slate-300"
+                                    }`}
+                                    title={voiceEnabled ? "Mute AI Voice" : "Unmute AI Voice"}
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">
+                                        {voiceEnabled ? "volume_up" : "volume_off"}
+                                    </span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOpen(false)}
+                                    className="text-slate-400 hover:text-white cursor-pointer"
+                                >
+                                    <span className="material-symbols-outlined text-[18px]">close</span>
+                                </button>
+                            </div>
                         </div>
 
                         {/* Messages Area */}
@@ -288,11 +402,13 @@ export default function AIChatBot() {
                                 <button
                                     type="button"
                                     onClick={startListening}
-                                    className="absolute right-3 text-slate-400 hover:text-[#72bbf6] transition-colors cursor-pointer"
+                                    className={`absolute right-2.5 p-1 rounded-full transition-colors cursor-pointer ${
+                                        isListening ? "text-red-400 bg-red-500/10 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"
+                                    }`}
                                     title="Voice Type"
                                 >
-                                    <span className={`material-symbols-outlined text-[18px] ${isListening ? "text-red-400 animate-pulse" : ""}`}>
-                                        mic
+                                    <span className="material-symbols-outlined text-[18px]">
+                                        {isListening ? "mic_off" : "mic"}
                                     </span>
                                 </button>
                             </div>
