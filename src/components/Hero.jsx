@@ -41,7 +41,7 @@ export default function Hero() {
   }, []);
 
   return (
-    <section className="w-full py-16 lg:py-36 relative flex items-center border-b border-white/5 overflow-hidden" id="hero">
+    <section className="w-full pt-8 py-16 lg:py-36 relative flex items-center border-b border-white/5 overflow-hidden" id="hero">
       <div className="w-full max-w-7xl mx-auto px-6 lg:px-12 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
 
         {/* Right Column (Image & Floating Badges): Mobile: 1st, Desktop: 2nd */}
