@@ -6,6 +6,8 @@ export default function AIChatBot() {
     const [isOpen, setIsOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const [voiceEnabled, setVoiceEnabled] = useState(true);
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [statusNote, setStatusNote] = useState(""); // Shows exact Mic/Voice status inside chat
     const [messages, setMessages] = useState([
         {
             role: "model",
@@ -19,8 +21,9 @@ export default function AIChatBot() {
     const chatBottomRef = useRef(null);
     const chipsRef = useRef(null);
     const recognitionRef = useRef(null);
+    const voicesRef = useRef([]);
 
-    const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
+    const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem("indrajeet_ai_key") || "";
 
     const SYSTEM_INSTRUCTION =
         "You are a friendly, fast, and helpful AI assistant on Indrajeet Kumar Sah's portfolio website. " +
@@ -37,10 +40,30 @@ export default function AIChatBot() {
         { label: "Contact Info 📬", prompt: "Indrajeet se connect ya contact kaise karein?" }
     ];
 
+    // Pre-load Browser Voices (Fixes Chrome empty voice list bug!)
+    useEffect(() => {
+        if (!("speechSynthesis" in window)) return;
+
+        const loadVoices = () => {
+            const available = window.speechSynthesis.getVoices();
+            if (available.length > 0) {
+                voicesRef.current = available;
+            }
+        };
+
+        loadVoices();
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+
+        return () => {
+            window.speechSynthesis.onvoiceschanged = null;
+        };
+    }, []);
+
     useEffect(() => {
         window.dispatchEvent(new CustomEvent("chatStateChange", { detail: isOpen }));
         if (!isOpen && "speechSynthesis" in window) {
             window.speechSynthesis.cancel();
+            setIsSpeaking(false);
         }
     }, [isOpen]);
 
@@ -72,68 +95,101 @@ export default function AIChatBot() {
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // 🔊 AI Text-to-Speech Function (Bolkar Jawab Sunane Wala Feature)
-    const speakReply = (text) => {
-        if (!voiceEnabled || !("speechSynthesis" in window)) return;
-
+    // 🔓 UNLOCK CHROME AUDIO ON USER CLICK (Crucial fix for async API calls!)
+    const unlockAudioEngine = () => {
+        if (!("speechSynthesis" in window)) return;
         window.speechSynthesis.cancel();
-
-        const hasHindiScript = /[\u0900-\u097F]/.test(text);
-        let speechString = text;
-
-        const phonetics = [
-            [/Indrajeet Kumar Sah/gi, hasHindiScript ? "इंद्रजीत कुमार साह" : "Indrajeet Kumar Sah"],
-            [/Indrajeet/gi, hasHindiScript ? "इंद्रजीत" : "Indrajeet"],
-            [/UI\/UX/gi, hasHindiScript ? "यूआई यूएक्स" : "UI UX"],
-            [/Figma/gi, hasHindiScript ? "फ़िग्मा" : "Figma"],
-            [/React\.js/gi, hasHindiScript ? "रिएक्ट जेएस" : "React JS"],
-            [/Tailwind CSS/gi, hasHindiScript ? "टेलविंड सीएसएस" : "Tailwind CSS"],
-            [/JavaScript/gi, hasHindiScript ? "जावास्क्रिप्ट" : "JavaScript"],
-            [/Front-End/gi, hasHindiScript ? "फ्रंटएंड" : "Frontend"]
-        ];
-
-        phonetics.forEach(([regex, word]) => {
-            speechString = speechString.replace(regex, word);
-        });
-
-        const cleanSpeech = speechString
-            .replace(/[*#`_~•💻🚀💼📬🎙️]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
-
-        const utterance = new SpeechSynthesisUtterance(cleanSpeech);
-        utterance.lang = hasHindiScript ? "hi-IN" : "en-IN";
-        utterance.rate = 1.0;
-
-        const voices = window.speechSynthesis.getVoices();
-        if (hasHindiScript) {
-            const hindiVoice =
-                voices.find((v) => v.name.includes("Google हिन्दी") || v.name.includes("Swara") || v.name.includes("Madhur")) ||
-                voices.find((v) => v.lang.includes("hi"));
-            if (hindiVoice) utterance.voice = hindiVoice;
-        } else {
-            const indianEngVoice = voices.find((v) => v.lang === "en-IN") || voices.find((v) => v.lang.includes("en"));
-            if (indianEngVoice) utterance.voice = indianEngVoice;
-        }
-
-        window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.resume();
+        const silentUnlock = new SpeechSynthesisUtterance("");
+        silentUnlock.volume = 0;
+        window.speechSynthesis.speak(silentUnlock);
     };
 
-    // 🎙️ Working Voice Typing Function
+    // 🔊 GUARANTEED AI TEXT-TO-SPEECH
+    const speakReply = (text, forceSpeak = false) => {
+        if ((!voiceEnabled && !forceSpeak) || !("speechSynthesis" in window)) return;
+
+        try {
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.resume();
+
+            const hasHindiScript = /[\u0900-\u097F]/.test(text);
+            let speechString = text;
+
+            const phonetics = [
+                [/Indrajeet Kumar Sah/gi, hasHindiScript ? "इंद्रजीत कुमार साह" : "Indrajeet Kumar Sah"],
+                [/Indrajeet/gi, hasHindiScript ? "इंद्रजीत" : "Indrajeet"],
+                [/UI\/UX/gi, hasHindiScript ? "यूआई यूएक्स" : "UI UX"],
+                [/Figma/gi, hasHindiScript ? "फ़िग्मा" : "Figma"],
+                [/React\.js/gi, hasHindiScript ? "रिएक्ट जेएस" : "React JS"],
+                [/Tailwind CSS/gi, hasHindiScript ? "टेलविंड सीएसएस" : "Tailwind CSS"],
+                [/JavaScript/gi, hasHindiScript ? "जावास्क्रिप्ट" : "JavaScript"],
+                [/Front-End/gi, hasHindiScript ? "फ्रंटएंड" : "Frontend"]
+            ];
+
+            phonetics.forEach(([regex, word]) => {
+                speechString = speechString.replace(regex, word);
+            });
+
+            const cleanSpeech = speechString
+                .replace(/[*#`_~•💻🚀💼📬🎙️]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+
+            if (!cleanSpeech) return;
+
+            const utterance = new SpeechSynthesisUtterance(cleanSpeech);
+            utterance.lang = hasHindiScript ? "hi-IN" : "en-IN";
+            utterance.rate = 1.0;
+            utterance.volume = 1.0;
+
+            const voices = voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
+            if (hasHindiScript) {
+                const hindiVoice =
+                    voices.find((v) => v.name.includes("Google हिन्दी") || v.name.includes("Swara") || v.name.includes("Madhur")) ||
+                    voices.find((v) => v.lang.includes("hi"));
+                if (hindiVoice) utterance.voice = hindiVoice;
+            } else {
+                const engVoice =
+                    voices.find((v) => v.lang === "en-IN" || v.name.includes("India")) ||
+                    voices.find((v) => v.lang.includes("en"));
+                if (engVoice) utterance.voice = engVoice;
+            }
+
+            utterance.onstart = () => setIsSpeaking(true);
+            utterance.onend = () => setIsSpeaking(false);
+            utterance.onerror = () => setIsSpeaking(false);
+
+            setTimeout(() => {
+                window.speechSynthesis.speak(utterance);
+            }, 80);
+        } catch (err) {
+            console.error("TTS Error:", err);
+            setIsSpeaking(false);
+        }
+    };
+
+    // 🎙️ GUARANTEED VOICE TYPING (MIC)
     const startListening = () => {
+        setStatusNote("");
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
-            alert("Please use Google Chrome or Microsoft Edge for Voice Input support!");
+            setStatusNote("⚠️ Voice typing sirf Google Chrome ya Microsoft Edge mein chalta hai.");
             return;
         }
 
         if ("speechSynthesis" in window) {
             window.speechSynthesis.cancel();
+            setIsSpeaking(false);
         }
 
         if (isListening) {
-            if (recognitionRef.current) recognitionRef.current.stop();
+            if (recognitionRef.current) {
+                try {
+                    recognitionRef.current.stop();
+                } catch (e) {}
+            }
             setIsListening(false);
             return;
         }
@@ -144,38 +200,47 @@ export default function AIChatBot() {
 
             recognition.lang = "en-IN";
             recognition.continuous = false;
-            recognition.interimResults = false;
+            recognition.interimResults = true;
+
+            const baseInput = input.trim();
 
             recognition.onstart = () => {
                 setIsListening(true);
+                setStatusNote("🎙️ Mic ON hai... Ab boliye!");
             };
 
             recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                setInput((prev) => (prev ? `${prev.trim()} ${transcript}` : transcript));
-                setIsListening(false);
+                let transcript = "";
+                for (let i = 0; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                setInput(baseInput ? `${baseInput} ${transcript}` : transcript);
             };
 
             recognition.onerror = (event) => {
-                console.error("Mic Error:", event.error);
                 setIsListening(false);
                 if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-                    alert("Mic permission blocked! Address bar mein Lock (🔒) icon par click karke Microphone Allow karein.");
+                    setStatusNote("🔒 Mic Permission Blocked! URL bar ke paas Lock icon daba kar Microphone 'Allow' karein.");
+                } else if (event.error === "no-speech") {
+                    setStatusNote("🎙️ Koi aawaz nahi sunai di. Dobara mic daba kar bolein.");
+                } else {
+                    setStatusNote(`⚠️ Mic Error (${event.error}): Kripya Google Chrome use karein.`);
                 }
             };
 
             recognition.onend = () => {
                 setIsListening(false);
+                setTimeout(() => setStatusNote(""), 2500);
             };
 
             recognition.start();
         } catch (err) {
-            console.error("Mic start error:", err);
             setIsListening(false);
+            setStatusNote("⚠️ Mic start nahi ho paya. Browser permission check karein.");
         }
     };
 
-    // 🧠 Smart Portfolio Fallback (Agar API key ya internet mein koi bhi issue aaye toh bhi 100% sahi jawab dega)
+    // 🧠 Smart Portfolio Fallback
     const getPortfolioFallbackReply = (query) => {
         const q = query.toLowerCase();
         if (q.includes("skill") || q.includes("tech")) {
@@ -188,21 +253,27 @@ export default function AIChatBot() {
             return "Indrajeet ne Clinchsoft Technologies mein Web Development Internship poori ki hai aur unhe modern Front-End React applications aur UI/UX interfaces banane ka strong practical experience hai.";
         }
         if (q.includes("contact") || q.includes("connect") || q.includes("hire") || q.includes("email")) {
-            return "Aap Indrajeet Kumar Sah se seedha Email (indrakumar2014.sah@gmail.com) ya Phone (+91-7890330625) par sampark kar sakte hain, ya portfolio ke Contact form se message bhej sakte hain!";
+            return "Aap Indrajeet Kumar Sah se seedha Email (indrakumar2014.sah@gmail.com) ya Phone (+91-7890330625) par sampark kar sakte hain!";
         }
         return "Hello! Main Indrajeet Kumar Sah ka Portfolio AI Assistant hoon. Aap mujhse unke React & UI/UX skills, projects, internship experience, ya contact details ke baare mein kuch bhi pooch sakte hain!";
     };
 
-    // 💬 Direct REST Fetch with Auto-Model Detection (Bypasses @google/generative-ai bugs!)
+    // 💬 Handle Send + Instant Audio Unlock
     const handleSend = async (e, customPrompt = null) => {
         if (e) e.preventDefault();
 
         const textToSend = customPrompt || input.trim();
         if (!textToSend || loading) return;
 
+        // Unlock browser speech engine immediately on click!
+        if (voiceEnabled) {
+            unlockAudioEngine();
+        }
+
         setMessages((prev) => [...prev, { role: "user", text: textToSend }]);
         if (!customPrompt) setInput("");
         setLoading(true);
+        setStatusNote("");
 
         const fullPrompt = `${SYSTEM_INSTRUCTION}\n\nUser Question: ${textToSend}`;
         let responseText = "";
@@ -211,13 +282,11 @@ export default function AIChatBot() {
             const cleanKey = API_KEY.trim();
             const candidateModels = [
                 "gemini-3.8-flash",
-                "gemini-3.8-flash-preview",
-                "gemini-3-flash",
-                "gemini-3.0-flash",
-                "gemini-2.5-flash"
+                "gemini-2.5-flash",
+                "gemini-2.0-flash",
+                "gemini-1.5-flash"
             ];
 
-            // 1. Try direct fetch on latest models
             for (const modelName of candidateModels) {
                 try {
                     const res = await fetch(
@@ -236,58 +305,23 @@ export default function AIChatBot() {
                         responseText = text.trim();
                         break;
                     }
-                } catch (err) {
-                    // Continue to next model
-                }
-            }
-
-            // 2. If still empty, dynamically fetch available flash model from Google API
-            if (!responseText) {
-                try {
-                    const listRes = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`
-                    );
-                    const listData = await listRes.json();
-                    const validModel = listData?.models?.find(
-                        (m) =>
-                            m.name.includes("flash") &&
-                            m.supportedGenerationMethods?.includes("generateContent")
-                    );
-
-                    if (validModel) {
-                        const genRes = await fetch(
-                            `https://generativelanguage.googleapis.com/v1beta/${validModel.name}:generateContent?key=${cleanKey}`,
-                            {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    contents: [{ parts: [{ text: fullPrompt }] }]
-                                })
-                            }
-                        );
-                        const genData = await genRes.json();
-                        const text = genData?.candidates?.[0]?.content?.parts?.[0]?.text;
-                        if (text) responseText = text.trim();
-                    }
-                } catch (err) {
-                    console.warn("Dynamic model lookup fallback triggered.");
-                }
+                } catch (err) {}
             }
         }
 
-        // 3. If API key is missing or quota/model fails, use Smart Portfolio Fallback (Never shows ugly error!)
         if (!responseText) {
             responseText = getPortfolioFallbackReply(textToSend);
         }
 
         setMessages((prev) => [...prev, { role: "model", text: responseText }]);
-        speakReply(responseText);
         setLoading(false);
+
+        // Speak the AI reply out loud
+        speakReply(responseText);
     };
 
     return (
         <div className="fixed bottom-6 right-5 sm:right-6 z-50 flex flex-col items-end">
-            {/* Chat Window */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -295,54 +329,71 @@ export default function AIChatBot() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
                         transition={{ duration: 0.25 }}
-                        className="mb-4 w-[330px] sm:w-[380px] h-[480px] bg-[#121724] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-md"
+                        className="mb-4 w-[330px] sm:w-[380px] h-[490px] bg-[#121724] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-md"
                     >
                         {/* Header */}
-                        <div className="px-5 py-4 bg-[#1a2133] border-b border-white/5 flex items-center justify-between">
+                        <div className="px-5 py-3.5 bg-[#1a2133] border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-[#72bbf6]/20 text-[#72bbf6] flex items-center justify-center font-bold text-sm">
                                     AI
                                 </div>
                                 <div>
                                     <h4 className="text-white text-sm font-semibold leading-tight">Indrajeet Assistant</h4>
-                                    <p className="text-slate-400 text-[11px]">Powered by Gemini • Voice AI</p>
+                                    <p className="text-slate-400 text-[11px]">
+                                        {isSpeaking ? "🔊 Speaking..." : "Powered by Gemini • Voice AI"}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-2">
-                                {/* Voice Mute / Unmute Button */}
+                                {/* Direct SVG Speaker Toggle Button */}
                                 <button
                                     type="button"
                                     onClick={() => {
-                                        if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                                        setVoiceEnabled((prev) => !prev);
+                                        if (voiceEnabled) {
+                                            window.speechSynthesis?.cancel();
+                                            setIsSpeaking(false);
+                                            setVoiceEnabled(false);
+                                        } else {
+                                            setVoiceEnabled(true);
+                                            const lastModelMsg = [...messages].reverse().find((m) => m.role === "model");
+                                            if (lastModelMsg) speakReply(lastModelMsg.text, true);
+                                        }
                                     }}
-                                    className={`p-1 rounded-lg transition-colors cursor-pointer ${
-                                        voiceEnabled ? "text-[#72bbf6] hover:text-white" : "text-slate-500 hover:text-slate-300"
+                                    className={`px-2 py-1 rounded-lg text-[11px] font-medium flex items-center gap-1 border transition-colors cursor-pointer ${
+                                        voiceEnabled
+                                            ? "bg-[#72bbf6]/15 text-[#72bbf6] border-[#72bbf6]/30"
+                                            : "bg-white/5 text-slate-400 border-white/10"
                                     }`}
-                                    title={voiceEnabled ? "Mute AI Voice" : "Unmute AI Voice"}
+                                    title="Toggle Voice Output"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">
-                                        {voiceEnabled ? "volume_up" : "volume_off"}
-                                    </span>
+                                    {voiceEnabled ? "🔊 ON" : "🔇 OFF"}
                                 </button>
 
+                                {/* Close Button */}
                                 <button
                                     type="button"
                                     onClick={() => setIsOpen(false)}
-                                    className="text-slate-400 hover:text-white cursor-pointer"
+                                    className="text-slate-400 hover:text-white p-1 cursor-pointer text-base font-bold"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">close</span>
+                                    ✕
                                 </button>
                             </div>
                         </div>
 
+                        {/* Status Notification Bar (If Mic Blocked or Listening) */}
+                        {statusNote && (
+                            <div className="bg-amber-500/15 border-b border-amber-500/30 px-3.5 py-1.5 text-[11px] text-amber-300 font-medium">
+                                {statusNote}
+                            </div>
+                        )}
+
                         {/* Messages Area */}
                         <div className="flex-1 p-4 overflow-y-auto no-scrollbar space-y-3 text-xs leading-relaxed">
                             {messages.map((m, idx) => (
-                                <div key={idx} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                                <div key={idx} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                                     <div
-                                        className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl ${
+                                        className={`max-w-[84%] px-3.5 py-2.5 rounded-2xl ${
                                             m.role === "user"
                                                 ? "bg-[#72bbf6] text-[#090d16] font-medium rounded-br-none"
                                                 : "bg-[#1e2538] text-slate-200 border border-white/5 rounded-bl-none"
@@ -350,6 +401,17 @@ export default function AIChatBot() {
                                     >
                                         {m.text}
                                     </div>
+
+                                    {/* Manual "🔊 Listen" button under every AI message */}
+                                    {m.role === "model" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => speakReply(m.text, true)}
+                                            className="mt-1 text-[10px] text-slate-400 hover:text-[#72bbf6] flex items-center gap-1 px-1 cursor-pointer"
+                                        >
+                                            🔊 Listen
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                             {loading && (
@@ -385,7 +447,7 @@ export default function AIChatBot() {
                             ))}
                         </div>
 
-                        {/* Input Form */}
+                        {/* Input Form with Direct SVG Mic & Send Icons */}
                         <form onSubmit={(e) => handleSend(e)} className="p-3 bg-[#1a2133] border-t border-white/5 flex items-center gap-2">
                             <div className="flex-1 relative flex items-center">
                                 <input
@@ -395,29 +457,37 @@ export default function AIChatBot() {
                                     onChange={(e) => setInput(e.target.value)}
                                     className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border transition-all ${
                                         isListening
-                                            ? "border-red-400/70 placeholder-red-400"
+                                            ? "border-red-400 placeholder-red-400"
                                             : "border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500"
                                     }`}
                                 />
+                                {/* Direct SVG Mic Button */}
                                 <button
                                     type="button"
                                     onClick={startListening}
-                                    className={`absolute right-2.5 p-1 rounded-full transition-colors cursor-pointer ${
-                                        isListening ? "text-red-400 bg-red-500/10 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"
+                                    className={`absolute right-2.5 p-1.5 rounded-full transition-colors cursor-pointer ${
+                                        isListening ? "text-red-400 bg-red-500/20 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"
                                     }`}
-                                    title="Voice Type"
+                                    title="Click to Speak"
                                 >
-                                    <span className="material-symbols-outlined text-[18px]">
-                                        {isListening ? "mic_off" : "mic"}
-                                    </span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                        <line x1="12" x2="12" y1="19" y2="22" />
+                                    </svg>
                                 </button>
                             </div>
+
+                            {/* Direct SVG Send Button */}
                             <button
                                 type="submit"
                                 disabled={loading || !input.trim()}
                                 className="w-9 h-9 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] disabled:opacity-50 text-[#090d16] flex items-center justify-center transition-all cursor-pointer shrink-0"
                             >
-                                <span className="material-symbols-outlined text-[18px]">send</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="22" x2="11" y1="2" y2="13" />
+                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                </svg>
                             </button>
                         </form>
                     </motion.div>
@@ -430,11 +500,9 @@ export default function AIChatBot() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIsOpen((prev) => !prev)}
-                className="w-14 h-14 rounded-full bg-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_25px_rgba(114,187,246,0.4)] cursor-pointer focus:outline-none"
+                className="w-14 h-14 rounded-full bg-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_25px_rgba(114,187,246,0.4)] cursor-pointer focus:outline-none font-bold text-lg"
             >
-                <span className="material-symbols-outlined text-[26px]">
-                    {isOpen ? "close" : "smart_toy"}
-                </span>
+                {isOpen ? "✕" : "AI"}
             </motion.button>
         </div>
     );
