@@ -11,7 +11,8 @@ export default function AIChatBot() {
     const [messages, setMessages] = useState([
         {
             role: "model",
-            text: "Hi! I am Indrajeet's Portfolio AI Assistant. Feel free to ask about his skills, projects, or anything you like!"
+            text: "Hi! I am Indrajeet's Portfolio AI Assistant. Feel free to ask about his skills, projects, or anything you like!",
+            speech: "Hi! I am Indrajeet's Portfolio AI Assistant. Feel free to ask about his skills, projects, or anything you like!"
         }
     ]);
     const [input, setInput] = useState("");
@@ -21,17 +22,20 @@ export default function AIChatBot() {
     const chatBottomRef = useRef(null);
     const chipsRef = useRef(null);
     const recognitionRef = useRef(null);
+    const audioPlayerRef = useRef(null);
     const voicesRef = useRef([]);
 
     const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem("indrajeet_ai_key") || "";
 
-    const SYSTEM_INSTRUCTION =
-        "You are a friendly, fast, and helpful AI assistant on Indrajeet Kumar Sah's portfolio website. " +
-        "Indrajeet is a Front-End Developer & UI/UX Designer skilled in React, Tailwind CSS, JavaScript, Figma, and UI engineering. " +
-        "Guidelines: " +
-        "1. Answer user queries politely, smartly, and concisely in 2 to 3 sentences max. " +
-        "2. Reply in the exact same language used by the user (Hindi, Hinglish, English, etc.). " +
-        "3. Answer any question asked (coding, tech, casual talk, portfolio).";
+    // System Prompt: Generates a clean screen text AND a 100% phonetic spoken script!
+    const SYSTEM_INSTRUCTION = `You are a friendly, smart AI assistant on Indrajeet Kumar Sah's portfolio website.
+Indrajeet is a Front-End Developer & UI/UX Designer skilled in React.js, Tailwind CSS, JavaScript, Figma, and UI engineering.
+
+IMPORTANT: Respond ONLY in valid JSON format with two keys:
+{
+  "display": "Clean 2-sentence reply for the chat screen (can use English, Hinglish, or Hindi with emojis).",
+  "speech": "100% natural spoken version for voice reading. NO emojis, NO slashes (/), NO dots in tech names. If replying in Hindi/Hinglish, write the ENTIRE 'speech' string in pure Devanagari script (including English words like रिएक्ट जेएस, टेलविंड सीएसएस, यूआई और यूएक्स डिज़ाइन, फ़िग्मा, इंद्रजीत कुमार साह) so the Hindi voice reads it smoothly like a human!"
+}`;
 
     const SUGGESTIONS = [
         { label: "Top Skills 💻", prompt: "Indrajeet ke top technical skills kya hain?" },
@@ -40,7 +44,7 @@ export default function AIChatBot() {
         { label: "Contact Info 📬", prompt: "Indrajeet se connect ya contact kaise karein?" }
     ];
 
-    // Load available voices for mobile & desktop
+    // Load voices
     useEffect(() => {
         if (!("speechSynthesis" in window)) return;
         const loadVoices = () => {
@@ -54,12 +58,21 @@ export default function AIChatBot() {
         };
     }, []);
 
+    // Stop audio when chat closes
+    const stopAllAudio = () => {
+        if ("speechSynthesis" in window) {
+            window.speechSynthesis.cancel();
+        }
+        if (audioPlayerRef.current) {
+            audioPlayerRef.current.pause();
+            audioPlayerRef.current.currentTime = 0;
+        }
+        setIsSpeaking(false);
+    };
+
     useEffect(() => {
         window.dispatchEvent(new CustomEvent("chatStateChange", { detail: isOpen }));
-        if (!isOpen && "speechSynthesis" in window) {
-            window.speechSynthesis.cancel();
-            setIsSpeaking(false);
-        }
+        if (!isOpen) stopAllAudio();
     }, [isOpen]);
 
     // Smooth auto-scrolling chips
@@ -90,94 +103,154 @@ export default function AIChatBot() {
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // Unlock Mobile & Chrome Audio Engine on tap
-    const unlockAudioEngine = () => {
-        if (!("speechSynthesis" in window)) return;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.resume();
-        const silent = new SpeechSynthesisUtterance("");
-        silent.volume = 0;
-        window.speechSynthesis.speak(silent);
+    // Convert any remaining English tech words into pure Devanagari phonetics
+    const toPureSpokenText = (rawText) => {
+        const isHindi = /[\u0900-\u097F]/.test(rawText) || /\b(mein|hain|hai|ke|ka|ki|aur|kya|kaise)\b/i.test(rawText);
+        let text = rawText;
+
+        if (isHindi) {
+            const map = [
+                [/indrakumar2014\.sah@gmail\.com/gi, "इंद्रकुमार दो हज़ार चौदह डॉट साह ऐट जीमेल डॉट कॉम"],
+                [/\+91-7890330625/g, "प्लस नाइन वन, सेवन एट नाइन ज़ीरो, डबल थ्री ज़ीरो, सिक्स टू फाइव"],
+                [/Indrajeet Kumar Sah/gi, "इंद्रजीत कुमार साह"],
+                [/Indrajeet/gi, "इंद्रजीत"],
+                [/Clinchsoft Technologies/gi, "क्लिंचसॉफ्ट टेक्नोलॉजीज"],
+                [/HireReady AI/gi, "हायर रेडी एआई"],
+                [/UI\/UX/gi, "यूआई और यूएक्स"],
+                [/\bUI\b/g, "यूआई"],
+                [/\bUX\b/g, "यूएक्स"],
+                [/HTML5\/CSS3/gi, "एचटीएमएल फाइव और सीएसएस थ्री"],
+                [/HTML5/gi, "एचटीएमएल फाइव"],
+                [/CSS3/gi, "सीएसएस थ्री"],
+                [/HTML/gi, "एचटीएमएल"],
+                [/CSS/gi, "सीएसएस"],
+                [/React\.js/gi, "रिएक्ट जेएस"],
+                [/React/gi, "रिएक्ट"],
+                [/JavaScript \(ES6\+\)/gi, "जावास्क्रिप्ट ईएस सिक्स"],
+                [/JavaScript/gi, "जावास्क्रिप्ट"],
+                [/Tailwind CSS/gi, "टेलविंड सीएसएस"],
+                [/Tailwind/gi, "टेलविंड"],
+                [/Figma/gi, "फ़िग्मा"],
+                [/Python/gi, "पायथन"],
+                [/System Design/gi, "सिस्टम डिज़ाइन"],
+                [/Front-End/gi, "फ्रंटएंड"],
+                [/Frontend/gi, "फ्रंटएंड"],
+                [/Developer/gi, "डेवलपर"],
+                [/Designer/gi, "डिज़ाइनर"],
+                [/Portfolio/gi, "पोर्टफोलियो"],
+                [/Assistant/gi, "असिस्टेंट"],
+                [/Projects/gi, "प्रोजेक्ट्स"],
+                [/Skills/gi, "स्किल्स"],
+                [/Experience/gi, "एक्सपीरियंस"],
+                [/Internship/gi, "इंटर्नशिप"],
+                [/\bAI\b/g, "एआई"]
+            ];
+            map.forEach(([regex, val]) => {
+                text = text.replace(regex, val);
+            });
+        } else {
+            text = text
+                .replace(/UI\/UX/gi, "UI and UX")
+                .replace(/React\.js/gi, "React JS")
+                .replace(/HTML5\/CSS3/gi, "HTML 5 and CSS 3")
+                .replace(/ES6\+/gi, "ES 6 plus");
+        }
+
+        return {
+            cleanText: text
+                .replace(/[*#`_~•💻🚀💼📬🎙️🔊🔇✕]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim(),
+            lang: isHindi ? "hi-IN" : "en-IN"
+        };
     };
 
-    // 🔊 AI Voice Output (Mobile + Desktop)
-    const speakReply = (text, forceSpeak = false) => {
+    // 🔊 NATURAL SENTENCE-BY-SENTENCE VOICE ENGINE
+    const speakReply = (speechText, forceSpeak = false) => {
         if ((!voiceEnabled && !forceSpeak) || !("speechSynthesis" in window)) return;
 
-        try {
-            window.speechSynthesis.cancel();
-            window.speechSynthesis.resume();
+        stopAllAudio();
 
-            const hasHindiScript = /[\u0900-\u097F]/.test(text);
-            let speechString = text;
+        const { cleanText, lang } = toPureSpokenText(speechText);
+        if (!cleanText) return;
 
-            const phonetics = [
-                [/Indrajeet Kumar Sah/gi, hasHindiScript ? "इंद्रजीत कुमार साह" : "Indrajeet Kumar Sah"],
-                [/Indrajeet/gi, hasHindiScript ? "इंद्रजीत" : "Indrajeet"],
-                [/UI\/UX/gi, hasHindiScript ? "यूआई यूएक्स" : "UI UX"],
-                [/Figma/gi, hasHindiScript ? "फ़िग्मा" : "Figma"],
-                [/React\.js/gi, hasHindiScript ? "रिएक्ट जेएस" : "React JS"],
-                [/Tailwind CSS/gi, hasHindiScript ? "टेलविंड सीएसएस" : "Tailwind CSS"],
-                [/JavaScript/gi, hasHindiScript ? "जावास्क्रिप्ट" : "JavaScript"],
-                [/Front-End/gi, hasHindiScript ? "फ्रंटएंड" : "Frontend"]
-            ];
+        // Split by sentences (।, ., !, ?) so mobile & desktop voices read smoothly with natural pauses
+        const sentences = cleanText
+            .split(/(?<=[।.!?])\s+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
 
-            phonetics.forEach(([regex, word]) => {
-                speechString = speechString.replace(regex, word);
-            });
+        const voices = voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
 
-            const cleanSpeech = speechString
-                .replace(/[*#`_~•💻🚀💼📬🎙️]/g, " ")
-                .replace(/\s+/g, " ")
-                .trim();
+        // Pick the highest quality Neural/Natural voice available on device
+        let selectedVoice = null;
+        if (lang === "hi-IN") {
+            selectedVoice =
+                voices.find((v) => v.name.includes("Google हिन्दी")) ||
+                voices.find((v) => v.name.includes("Natural") && v.lang.includes("hi")) ||
+                voices.find((v) => v.name.includes("Swara") || v.name.includes("Lekha")) ||
+                voices.find((v) => v.lang.includes("hi"));
+        } else {
+            selectedVoice =
+                voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") ||
+                voices.find((v) => v.name.includes("Natural") && v.lang === "en-IN") ||
+                voices.find((v) => v.name.includes("Neerja") || v.name.includes("Rishi")) ||
+                voices.find((v) => v.lang === "en-IN") ||
+                voices.find((v) => v.name.includes("Google") && v.lang.includes("en"));
+        }
 
-            if (!cleanSpeech) return;
+        setIsSpeaking(true);
 
-            const utterance = new SpeechSynthesisUtterance(cleanSpeech);
-            utterance.lang = hasHindiScript ? "hi-IN" : "en-IN";
-            utterance.rate = 1.0;
+        sentences.forEach((sentence, idx) => {
+            const utterance = new SpeechSynthesisUtterance(sentence);
+            utterance.lang = lang;
+            if (selectedVoice) utterance.voice = selectedVoice;
 
-            const voices = voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
-            if (hasHindiScript) {
-                const hindiVoice =
-                    voices.find((v) => v.name.includes("Google हिन्दी") || v.name.includes("Swara") || v.name.includes("Madhur")) ||
-                    voices.find((v) => v.lang.includes("hi"));
-                if (hindiVoice) utterance.voice = hindiVoice;
-            } else {
-                const engVoice =
-                    voices.find((v) => v.lang === "en-IN" || v.name.includes("India")) ||
-                    voices.find((v) => v.lang.includes("en"));
-                if (engVoice) utterance.voice = engVoice;
+            // Natural human pacing & warm pitch
+            utterance.rate = lang === "hi-IN" ? 0.98 : 0.96;
+            utterance.pitch = 1.02;
+            utterance.volume = 1.0;
+
+            if (idx === sentences.length - 1) {
+                utterance.onend = () => setIsSpeaking(false);
+                utterance.onerror = () => setIsSpeaking(false);
             }
 
-            utterance.onstart = () => setIsSpeaking(true);
-            utterance.onend = () => setIsSpeaking(false);
-            utterance.onerror = () => setIsSpeaking(false);
-
-            setTimeout(() => {
-                window.speechSynthesis.speak(utterance);
-            }, 60);
-        } catch (err) {
-            setIsSpeaking(false);
-        }
+            window.speechSynthesis.speak(utterance);
+        });
     };
 
-    // 🧠 Smart Portfolio Fallback
-    const getPortfolioFallbackReply = (query) => {
+    // 🧠 Pre-built Dual-Format Fallbacks (Display Text + Pure Spoken Script!)
+    const getPortfolioFallback = (query) => {
         const q = query.toLowerCase();
         if (q.includes("skill") || q.includes("tech")) {
-            return "Indrajeet ke top skills mein React.js, JavaScript (ES6+), Tailwind CSS, HTML5/CSS3, Figma (UI/UX Design), Python, aur System Design shamil hain.";
+            return {
+                display: "Indrajeet's top skills include React.js, JavaScript (ES6+), Tailwind CSS, HTML5/CSS3, Figma (UI/UX Design), Python, and System Design. 💻",
+                speech: "इंद्रजीत के मुख्य टेक्निकल स्किल्स में रिएक्ट जेएस, जावास्क्रिप्ट, टेलविंड सीएसएस, एचटीएमएल, सीएसएस, फ़िग्मा यूआई और यूएक्स डिज़ाइन, और पायथन शामिल हैं।"
+            };
         }
         if (q.includes("project")) {
-            return "Indrajeet ke best projects mein HireReady AI (ATS Resume Analyzer & Voice Interviewer), AI-Powered Portfolio Website, aur Modern Responsive Figma UI/UX Design Systems shamil hain.";
+            return {
+                display: "Indrajeet's best projects include HireReady AI (ATS Resume Analyzer & Voice Interviewer), this AI-Powered Portfolio Website, and responsive Figma UI/UX Design Systems. 🚀",
+                speech: "इंद्रजीत के बेस्ट प्रोजेक्ट्स में हायर रेडी एआई रेज़्यूमे एनालाइज़र, यह एआई पावर्ड पोर्टफोलियो वेबसाइट, और आधुनिक रिस्पॉन्सिव फ़िग्मा डिज़ाइन शामिल हैं।"
+            };
         }
         if (q.includes("experience") || q.includes("background") || q.includes("intern")) {
-            return "Indrajeet ne Clinchsoft Technologies mein Web Development Internship poori ki hai aur unhe modern Front-End React applications aur UI/UX interfaces banane ka strong practical experience hai.";
+            return {
+                display: "Indrajeet completed a Web Development Internship at Clinchsoft Technologies and has strong hands-on experience building modern React and UI/UX web applications. 💼",
+                speech: "इंद्रजीत ने क्लिंचसॉफ्ट टेक्नोलॉजीज में वेब डेवलपमेंट इंटर्नशिप पूरी की है, और उन्हें रिएक्ट और यूआई यूएक्स में आधुनिक वेब एप्लिकेशन बनाने का शानदार अनुभव है।"
+            };
         }
         if (q.includes("contact") || q.includes("connect") || q.includes("hire") || q.includes("email")) {
-            return "Aap Indrajeet Kumar Sah se seedha Email (indrakumar2014.sah@gmail.com) ya Phone (+91-7890330625) par sampark kar sakte hain!";
+            return {
+                display: "You can reach Indrajeet Kumar Sah via Email at indrakumar2014.sah@gmail.com or Phone at +91-7890330625. 📬",
+                speech: "आप इंद्रजीत कुमार साह से उनके ईमेल या फ़ोन नंबर के ज़रिए सीधा संपर्क कर सकते हैं, जिसकी जानकारी स्क्रीन पर दी गई है।"
+            };
         }
-        return "Hello! Main Indrajeet Kumar Sah ka Portfolio AI Assistant hoon. Aap mujhse unke React & UI/UX skills, projects, internship experience, ya contact details ke baare mein kuch bhi pooch sakte hain!";
+        return {
+            display: "Hello! Main Indrajeet Kumar Sah ka Portfolio AI Assistant hoon. Aap mujhse unke React & UI/UX skills, projects, ya experience ke baare mein kuch bhi pooch sakte hain!",
+            speech: "नमस्ते! मैं इंद्रजीत कुमार साह का पोर्टफोलियो एआई असिस्टेंट हूँ। आप मुझसे उनके रिएक्ट और यूआई यूएक्स स्किल्स, प्रोजेक्ट्स, या एक्सपीरियंस के बारे में कुछ भी पूछ सकते हैं।"
+        };
     };
 
     // 💬 Send Message Function
@@ -187,9 +260,7 @@ export default function AIChatBot() {
         const textToSend = (customPrompt || input).trim();
         if (!textToSend || loading) return;
 
-        if (voiceEnabled) {
-            unlockAudioEngine();
-        }
+        stopAllAudio();
 
         setMessages((prev) => [...prev, { role: "user", text: textToSend }]);
         setInput("");
@@ -197,7 +268,8 @@ export default function AIChatBot() {
         setStatusNote("");
 
         const fullPrompt = `${SYSTEM_INSTRUCTION}\n\nUser Question: ${textToSend}`;
-        let responseText = "";
+        let displayReply = "";
+        let speechReply = "";
 
         if (API_KEY && API_KEY.trim()) {
             const cleanKey = API_KEY.trim();
@@ -221,40 +293,39 @@ export default function AIChatBot() {
                         }
                     );
                     const data = await res.json();
-                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (text) {
-                        responseText = text.trim();
+                    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (rawText) {
+                        try {
+                            const cleanedJson = rawText.replace(/```json|```/g, "").trim();
+                            const parsed = JSON.parse(cleanedJson);
+                            displayReply = parsed.display || rawText;
+                            speechReply = parsed.speech || parsed.display || rawText;
+                        } catch {
+                            displayReply = rawText.trim();
+                            speechReply = rawText.trim();
+                        }
                         break;
                     }
                 } catch (err) {}
             }
         }
 
-        if (!responseText) {
-            responseText = getPortfolioFallbackReply(textToSend);
+        if (!displayReply) {
+            const fb = getPortfolioFallback(textToSend);
+            displayReply = fb.display;
+            speechReply = fb.speech;
         }
 
-        setMessages((prev) => [...prev, { role: "model", text: responseText }]);
+        setMessages((prev) => [...prev, { role: "model", text: displayReply, speech: speechReply }]);
         setLoading(false);
-        speakReply(responseText);
+        speakReply(speechReply);
     };
 
-    // 🎙️ CHATGPT-STYLE MOBILE & DESKTOP MIC (Auto Permission Popup + Auto Send!)
+    // 🎙️ CHATGPT-STYLE MOBILE & DESKTOP MIC
     const startListening = async () => {
         setStatusNote("");
+        stopAllAudio();
 
-        // Stop AI speaking if user taps mic
-        if ("speechSynthesis" in window) {
-            window.speechSynthesis.cancel();
-            setIsSpeaking(false);
-        }
-
-        // Unlock audio so AI can speak back automatically after user finishes speaking
-        if (voiceEnabled) {
-            unlockAudioEngine();
-        }
-
-        // If already listening, stop it
         if (isListening) {
             if (recognitionRef.current) {
                 try {
@@ -265,38 +336,34 @@ export default function AIChatBot() {
             return;
         }
 
-        // Check if user opened via insecure HTTP IP on mobile (e.g. 192.168.x.x)
         if (!window.isSecureContext && window.location.hostname !== "localhost") {
-            setStatusNote("⚠️ Mobile par Mic sirf HTTPS (Live Vercel/GitHub Link) par chalta hai, IP address par nahi.");
+            setStatusNote("⚠️ Mobile par Mic sirf HTTPS (Live Link) par chalta hai.");
             return;
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            setStatusNote("⚠️ Kripya Mobile par Chrome ya Safari browser use karein.");
+            setStatusNote("⚠️ Kripya Chrome ya Safari browser use karein.");
             return;
         }
 
-        // Step 1: Trigger Native Mobile "Allow Microphone?" Popup (Like ChatGPT!)
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                // Release hardware stream immediately so SpeechRecognition can use the mic on Android
                 stream.getTracks().forEach((track) => track.stop());
             } catch (permErr) {
-                setStatusNote("⚠️ Mic Allow nahi hua. Browser ke 3-dots (⋮) > Settings > Site Settings > Microphone mein Allow karein.");
+                setStatusNote("⚠️ Browser Settings > Site Settings > Microphone mein Allow karein.");
                 return;
             }
         }
 
-        // Step 2: Start Speech Recognition & Auto-Send when done speaking
         try {
             const recognition = new SpeechRecognition();
             recognitionRef.current = recognition;
 
-            recognition.lang = "en-IN"; // Supports Hindi, Hinglish & English
+            recognition.lang = "en-IN";
             recognition.continuous = false;
-            recognition.interimResults = false; // MUST be false for Android Chrome reliability!
+            recognition.interimResults = false;
 
             recognition.onstart = () => {
                 setIsListening(true);
@@ -308,7 +375,6 @@ export default function AIChatBot() {
                 if (transcript) {
                     setIsListening(false);
                     setStatusNote("");
-                    // 🚀 ChatGPT Style: Auto-send message immediately after speaking!
                     handleSend(null, transcript);
                 }
             };
@@ -317,8 +383,6 @@ export default function AIChatBot() {
                 setIsListening(false);
                 if (event.error === "no-speech") {
                     setStatusNote("🎙️ Aawaz nahi aayi. Mic daba kar turant bolein.");
-                } else if (event.error === "not-allowed" || event.error === "service-not-allowed") {
-                    setStatusNote("⚠️ Browser mein Mic permission Off hai. Site settings se Allow karein.");
                 } else {
                     setStatusNote("");
                 }
@@ -336,7 +400,6 @@ export default function AIChatBot() {
 
     return (
         <div className="fixed bottom-6 right-5 sm:right-6 z-50 flex flex-col items-end">
-            {/* Chat Window */}
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -361,18 +424,16 @@ export default function AIChatBot() {
                             </div>
 
                             <div className="flex items-center gap-2.5">
-                                {/* Voice Mute/Unmute Toggle */}
                                 <button
                                     type="button"
                                     onClick={() => {
                                         if (voiceEnabled) {
-                                            window.speechSynthesis?.cancel();
-                                            setIsSpeaking(false);
+                                            stopAllAudio();
                                             setVoiceEnabled(false);
                                         } else {
                                             setVoiceEnabled(true);
                                             const lastMsg = [...messages].reverse().find((m) => m.role === "model");
-                                            if (lastMsg) speakReply(lastMsg.text, true);
+                                            if (lastMsg) speakReply(lastMsg.speech || lastMsg.text, true);
                                         }
                                     }}
                                     className={`text-xs px-2 py-0.5 rounded-full border transition cursor-pointer ${
@@ -394,7 +455,6 @@ export default function AIChatBot() {
                             </div>
                         </div>
 
-                        {/* Helpful Status Bar */}
                         {statusNote && (
                             <div className="bg-[#72bbf6]/15 border-b border-[#72bbf6]/30 px-3.5 py-1.5 text-[11px] text-[#72bbf6] font-medium">
                                 {statusNote}
