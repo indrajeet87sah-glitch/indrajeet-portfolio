@@ -30,7 +30,7 @@ export default function AIChatBot() {
     const chatBottomRef = useRef(null);
     const chipsRef = useRef(null);
     const recognitionRef = useRef(null);
-    const voicesRef = useRef([]);
+    const activeAudioRef = useRef(null);
     const activeModelRef = useRef(null);
 
     const getApiKey = () => {
@@ -43,7 +43,7 @@ export default function AIChatBot() {
 
     const SYSTEM_INSTRUCTION = `You are "Indrajeet AI Agent", an advanced, friendly, and smart AI assistant on Indrajeet Kumar Sah's portfolio website.
 About Indrajeet Kumar Sah:
-- Role: Front-End Developer & UI/UX Designer (Kolkata, West Bengal, India).
+- Role: Front-End Developer & Senior UI/UX Designer (Kolkata, West Bengal, India).
 - Technical Skills: React.js, JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, UI/UX Design, Python, System Design, Git/GitHub, and AI API Integrations.
 - Experience: Completed Web Development Internship at Clinchsoft Technologies; builds high-performance responsive web applications and modern UI interfaces.
 - Featured Projects: HireReady AI (ATS Resume Diagnostics & Voice Mock Interviewer), AI-Powered Portfolio with Voice Agent, and Responsive Web Applications.
@@ -52,15 +52,14 @@ About Indrajeet Kumar Sah:
 CRITICAL RULES:
 1. Directly and smartly answer any question (coding, frontend, career, HR questions, or general knowledge) in 2 to 3 concise sentences.
 2. NEVER share any Figma link.
-3. If the user writes or speaks in Hindi or Hinglish, reply in clean conversational Hindi using Devanagari script so the Hindi voice reads it smoothly!
-4. If the user writes in English, reply in natural English.`;
+3. Reply in the exact same language used by the user (Hindi, Hinglish, or English). Keep text clean and natural.`;
 
     const SUGGESTIONS = [
         { label: "Top Skills 💻", prompt: "Indrajeet ke top technical skills kya hain?" },
         { label: "Best Projects 🚀", prompt: "Show me Indrajeet's best projects." },
         { label: "Why Hire Him? 🌟", prompt: "Why should a company hire Indrajeet for a Frontend role?" },
         { label: "Experience 💼", prompt: "Indrajeet ka web development internship experience kaisa hai?" },
-        { label: "Contact Info 📬", prompt: "Indrajeet se contact kaise karein?" }
+        { label: "Contact Info 📬", prompt: "Indrajeet से contact कैसे करें?" }
     ];
 
     useEffect(() => {
@@ -69,20 +68,13 @@ CRITICAL RULES:
         } catch {}
     }, [messages]);
 
-    useEffect(() => {
-        if (!("speechSynthesis" in window)) return;
-        const loadVoices = () => {
-            const available = window.speechSynthesis.getVoices();
-            if (available.length > 0) voicesRef.current = available;
-        };
-        loadVoices();
-        window.speechSynthesis.onvoiceschanged = loadVoices;
-        return () => {
-            window.speechSynthesis.onvoiceschanged = null;
-        };
-    }, []);
-
+    // Stop audio when chat closes
     const stopAllAudio = () => {
+        if (activeAudioRef.current) {
+            activeAudioRef.current.pause();
+            activeAudioRef.current.currentTime = 0;
+            activeAudioRef.current = null;
+        }
         if ("speechSynthesis" in window) {
             window.speechSynthesis.cancel();
         }
@@ -148,7 +140,7 @@ CRITICAL RULES:
         }
     };
 
-    // Detect Which Smart Action Buttons to Show (No Figma Link!)
+    // Detect Action Cards
     const detectActionCard = (userQ, aiReply) => {
         const combined = `${userQ}${aiReply}`.toLowerCase();
         if (combined.includes("contact") || combined.includes("email") || combined.includes("7890330625") || combined.includes("संपर्क") || combined.includes("hire")) {
@@ -160,104 +152,62 @@ CRITICAL RULES:
         return null;
     };
 
-    // Convert Tech Terms for Natural Pronunciation
-    const toPureSpokenText = (rawText) => {
-        const isHindi = /[\u0900-\u097F]/.test(rawText);
-        let text = rawText;
-
-        if (isHindi) {
-            const map = [
-                [/indrakumar2014\.sah@gmail\.com/gi, "इंद्रकुमार के ईमेल"],
-                [/\+91-7890330625/g, "उनके मोबाइल नंबर"],
-                [/Indrajeet Kumar Sah/gi, "इंद्रजीत कुमार साह"],
-                [/Indrajeet/gi, "इंद्रजीत"],
-                [/Clinchsoft Technologies/gi, "क्लिंचसॉफ्ट टेक्नोलॉजीज"],
-                [/HireReady AI/gi, "हायर रेडी एआई"],
-                [/UI\/UX/gi, "यूआई और यूएक्स"],
-                [/\bUI\b/g, "यूआई"],
-                [/\bUX\b/g, "यूएक्स"],
-                [/HTML5\/CSS3/gi, "एचटीएमएल फाइव और सीएसएस थ्री"],
-                [/HTML5/gi, "एचटीएमएल फाइव"],
-                [/CSS3/gi, "सीएसएस थ्री"],
-                [/React\.js/gi, "रिएक्ट जेएस"],
-                [/React/gi, "रिएक्ट"],
-                [/JavaScript \(ES6\+\)/gi, "जावास्क्रिप्ट ईएस सिक्स"],
-                [/JavaScript/gi, "जावास्क्रिप्ट"],
-                [/Tailwind CSS/gi, "टेलविंड सीएसएस"],
-                [/Tailwind/gi, "टेलविंड"],
-                [/Figma/gi, "फ़िग्मा"],
-                [/Python/gi, "पायथन"],
-                [/System Design/gi, "सिस्टम डिज़ाइन"],
-                [/Front-End/gi, "फ्रंटएंड"],
-                [/Frontend/gi, "फ्रंटएंड"],
-                [/\bAI\b/g, "एआई"]
-            ];
-            map.forEach(([regex, val]) => {
-                text = text.replace(regex, val);
-            });
-        } else {
-            text = text
-                .replace(/UI\/UX/gi, "UI and UX")
-                .replace(/React\.js/gi, "React JS")
-                .replace(/HTML5\/CSS3/gi, "HTML 5 and CSS 3")
-                .replace(/ES6\+/gi, "ES 6 plus");
-        }
-
-        return {
-            cleanText: text
-                .replace(/[*#`_~•💻🚀💼📬🌟🎙️🔊🔇✕⚠️✅]/g, " ")
-                .replace(/\s+/g, " ")
-                .trim(),
-            lang: isHindi ? "hi-IN" : "en-IN"
-        };
-    };
-
-    // Natural Sentence-by-Sentence Voice Output
-    const speakReply = (speechText, forceSpeak = false) => {
-        if ((!voiceEnabled && !forceSpeak) || !("speechSynthesis" in window)) return;
+    // 🔊 WORLD-CLASS HUMAN-LIKE VOICE (Google Translate Neural Audio Stream)
+    const speakReply = (textToRead, forceSpeak = false) => {
+        if ((!voiceEnabled && !forceSpeak) || !textToRead) return;
 
         stopAllAudio();
 
-        const { cleanText, lang } = toPureSpokenText(speechText);
+        // Clean emojis and markdown symbols so audio reads exact words smoothly
+        const cleanText = textToRead
+            .replace(/[*#`_~•💻🚀💼📬🌟🎙️🔊🔇✕⚠️✅]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+
         if (!cleanText) return;
 
-        const sentences = cleanText
-            .split(/(?<=[।.!?])\s+/)
-            .map((s) => s.trim())
-            .filter(Boolean);
+        // Detect if text is Hindi/Hinglish or English
+        const isHindi = /[\u0900-\u097F]/.test(cleanText) || /\b(mein|hain|hai|ke|ka|ki|aur|kya|kaise)\b/i.test(cleanText);
+        const langCode = isHindi ? "hi" : "en";
 
-        const voices = voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
+        try {
+            setIsSpeaking(true);
+            // Google Translate high-quality natural TTS audio stream
+            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
+                cleanText
+            )}&tl=${langCode}&client=tw-ob`;
 
-        let selectedVoice = null;
-        if (lang === "hi-IN") {
-            selectedVoice =
-                voices.find((v) => v.name.includes("Google हिन्दी")) ||
-                voices.find((v) => v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Lekha")) ||
-                voices.find((v) => v.lang.includes("hi"));
-        } else {
-            selectedVoice =
-                voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") ||
-                voices.find((v) => v.name.includes("Neerja") || v.name.includes("Rishi")) ||
-                voices.find((v) => v.lang === "en-IN") ||
-                voices.find((v) => v.lang.includes("en"));
+            const audio = new Audio(audioUrl);
+            activeAudioRef.current = audio;
+
+            audio.onended = () => setIsSpeaking(false);
+            audio.onerror = () => {
+                setIsSpeaking(false);
+                // Fallback to browser speech synthesis if stream fails due to browser policy
+                fallbackBrowserSpeech(cleanText, langCode);
+            };
+
+            audio.play().catch(() => {
+                setIsSpeaking(false);
+                fallbackBrowserSpeech(cleanText, langCode);
+            });
+        } catch (e) {
+            setIsSpeaking(false);
+            fallbackBrowserSpeech(cleanText, langCode);
         }
+    };
 
-        setIsSpeaking(true);
-
-        sentences.forEach((sentence, idx) => {
-            const utterance = new SpeechSynthesisUtterance(sentence);
-            utterance.lang = lang;
-            if (selectedVoice) utterance.voice = selectedVoice;
-            utterance.rate = 0.96;
-            utterance.pitch = 1.0;
-
-            if (idx === sentences.length - 1) {
-                utterance.onend = () => setIsSpeaking(false);
-                utterance.onerror = () => setIsSpeaking(false);
-            }
-
-            window.speechSynthesis.speak(utterance);
-        });
+    // Browser Speech Synthesis Fallback
+    const fallbackBrowserSpeech = (text, lang) => {
+        if (!("speechSynthesis" in window)) return;
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang === "hi" ? "hi-IN" : "en-IN";
+        utterance.rate = 0.95;
+        utterance.onstart = () => setIsSpeaking(true);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+        window.speechSynthesis.speak(utterance);
     };
 
     // Dynamic Gemini Model Resolver
@@ -345,7 +295,7 @@ CRITICAL RULES:
         if (textToSend.startsWith("AIzaSy")) {
             localStorage.setItem("indrajeet_ai_key", textToSend);
             setInput("");
-            const confirmMsg = "✅ API Key save ho gayi hai! Ab aap mujhse kuch bhi poochiye!";
+            const confirmMsg = "API Key save ho gayi hai! Ab aap mujhse kuch bhi poochiye.";
             setMessages((prev) => [...prev, { role: "model", text: confirmMsg }]);
             speakReply(confirmMsg);
             return;
@@ -364,7 +314,7 @@ CRITICAL RULES:
         if (!apiKey) {
             setLoading(false);
             const missingKeyMsg =
-                "⚠️ Live website par Gemini API Key set nahi hai! Apni 'AIzaSy...' wali key yahan chat box mein paste karke Send kar dein.";
+                "Live website par Gemini API Key set nahi hai! Apni 'AIzaSy...' wali key yahan chat box mein paste karke Send kar dein.";
             setMessages((prev) => [...prev, { role: "model", text: missingKeyMsg }]);
             return;
         }
@@ -377,7 +327,7 @@ CRITICAL RULES:
             speakReply(aiReply);
         } catch (err) {
             setLoading(false);
-            const errMsg = `⚠️ API Issue: ${err.message}.`;
+            const errMsg = `API Issue: ${err.message}.`;
             setMessages((prev) => [...prev, { role: "model", text: errMsg }]);
         }
     };
@@ -398,13 +348,13 @@ CRITICAL RULES:
         }
 
         if (!window.isSecureContext && window.location.hostname !== "localhost") {
-            setStatusNote("⚠️ Mobile par Mic sirf HTTPS (Live Link) par chalta hai.");
+            setStatusNote("Mobile par Mic sirf HTTPS (Live Link) par chalta hai.");
             return;
         }
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            setStatusNote("⚠️ Kripya Chrome ya Edge browser use karein.");
+            setStatusNote("Kripya Chrome ya Edge browser use karein.");
             return;
         }
 
@@ -413,7 +363,7 @@ CRITICAL RULES:
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 stream.getTracks().forEach((track) => track.stop());
             } catch (permErr) {
-                setStatusNote("⚠️ Browser Settings > Site Settings > Microphone mein Allow karein.");
+                setStatusNote("Browser Settings > Site Settings > Microphone mein Allow karein.");
                 return;
             }
         }
@@ -428,7 +378,7 @@ CRITICAL RULES:
 
             recognition.onstart = () => {
                 setIsListening(true);
-                setStatusNote("🎙️ Boliye... (Bolna rukte hi message apne aap chala jayega)");
+                setStatusNote("Boliye... (Bolna rukte hi message apne aap chala jayega)");
             };
 
             recognition.onresult = (event) => {
@@ -443,7 +393,7 @@ CRITICAL RULES:
             recognition.onerror = (event) => {
                 setIsListening(false);
                 if (event.error === "no-speech") {
-                    setStatusNote("🎙️ Aawaz nahi aayi. Mic daba kar turant bolein.");
+                    setStatusNote("Aawaz nahi aayi. Mic daba kar turant bolein.");
                 } else {
                     setStatusNote("");
                 }
@@ -488,10 +438,10 @@ CRITICAL RULES:
                                     <div className="flex items-center gap-1.5">
                                         {isSpeaking ? (
                                             <span className="text-[#72bbf6] text-[11px] font-medium flex items-center gap-1 animate-pulse">
-                                                🔊 Speaking...
+                                                Speaking clearly...
                                             </span>
                                         ) : (
-                                            <p className="text-slate-400 text-[11px]">Powered by Gemini • Voice & Nav</p>
+                                            <p className="text-slate-400 text-[11px]">Powered by Gemini • Human Voice</p>
                                         )}
                                     </div>
                                 </div>
@@ -559,20 +509,20 @@ CRITICAL RULES:
                                         {m.text}
                                     </div>
 
-                                    {/* Smart Action Cards (Only Contact & GitHub - No Figma Link!) */}
+                                    {/* Smart Action Cards */}
                                     {m.role === "model" && m.action === "contact_card" && (
                                         <div className="mt-2 flex flex-wrap gap-1.5 max-w-[85%]">
                                             <a
                                                 href="mailto:indrakumar2014.sah@gmail.com"
                                                 className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
                                             >
-                                                ✉️ Email Indrajeet
+                                                Email Indrajeet
                                             </a>
                                             <a
                                                 href="tel:+917890330625"
                                                 className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
                                             >
-                                                📞 Call +91-7890330625
+                                                Call +91-7890330625
                                             </a>
                                         </div>
                                     )}
@@ -585,14 +535,14 @@ CRITICAL RULES:
                                                 rel="noreferrer"
                                                 className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
                                             >
-                                                💻 View GitHub Projects
+                                                View GitHub Projects
                                             </a>
                                             <button
                                                 type="button"
                                                 onClick={() => triggerPageNavigation("projects")}
                                                 className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer"
                                             >
-                                                🚀 Scroll to Projects
+                                                Scroll to Projects
                                             </button>
                                         </div>
                                     )}
