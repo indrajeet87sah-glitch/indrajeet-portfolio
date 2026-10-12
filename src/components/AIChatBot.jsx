@@ -14,7 +14,7 @@ export default function AIChatBot() {
 
     const INITIAL_MSG = {
         role: "model",
-        text: "Hi! I am Indrajeet's AI Agent. Ask me about his skills, projects, or say 'Go to projects' and I will navigate the page for you!",
+        text: "Hi! I am Indrajeet's AI Agent. I have read his entire live portfolio—including Selected Works, Skills, and Qualifications. Ask me anything!",
         action: "quick_links"
     };
 
@@ -30,8 +30,10 @@ export default function AIChatBot() {
     const chatBottomRef = useRef(null);
     const chipsRef = useRef(null);
     const recognitionRef = useRef(null);
-    const activeAudioRef = useRef(null);
+    const voicesRef = useRef([]);
     const activeModelRef = useRef(null);
+    const speechQueueRef = useRef([]);
+    const isCancelledRef = useRef(false);
 
     const getApiKey = () => {
         return (
@@ -41,26 +43,86 @@ export default function AIChatBot() {
         ).trim();
     };
 
-    const SYSTEM_INSTRUCTION = `You are "Indrajeet AI Agent", an advanced, friendly, and smart AI assistant on Indrajeet Kumar Sah's portfolio website.
-About Indrajeet Kumar Sah:
-- Role: Front-End Developer & Senior UI/UX Designer (Kolkata, West Bengal, India).
-- Technical Skills: React.js, JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, UI/UX Design, Python, System Design, Git/GitHub, and AI API Integrations.
-- Experience: Completed Web Development Internship at Clinchsoft Technologies; builds high-performance responsive web applications and modern UI interfaces.
-- Featured Projects: HireReady AI (ATS Resume Diagnostics & Voice Mock Interviewer), AI-Powered Portfolio with Voice Agent, and Responsive Web Applications.
-- Contact: Email: indrakumar2014.sah@gmail.com | Phone: +91-7890330625 | GitHub: github.com/indrajeet87sah-glitch.
+    // 1. LIVE DOM READER: Reads every section, heading, project card & link directly from the webpage
+    const readEntireWebpage = () => {
+        try {
+            const clone = document.body.cloneNode(true);
+            const chatEl = clone.querySelector("#ai-chatbot-root");
+            if (chatEl) chatEl.remove();
 
-CRITICAL RULES:
-1. Directly and smartly answer any question (coding, frontend, career, HR questions, or general knowledge) in 2 to 3 concise sentences.
-2. NEVER share any Figma link.
-3. Reply in the exact same language used by the user (Hindi, Hinglish, or English). Keep text clean and natural.`;
+            const structuredData = [];
+            const elements = clone.querySelectorAll("section, header, footer, article, [id]");
+
+            elements.forEach((el) => {
+                const sectionId = el.id ? `[Section: #${el.id}]` : "";
+                const text = (el.innerText || "").replace(/\s+/g, " ").trim();
+                if (text && text.length > 20) {
+                    structuredData.push(`${sectionId}${text}`);
+                }
+            });
+
+            let finalContent = structuredData.join("\n---\n");
+            if (!finalContent || finalContent.length < 100) {
+                finalContent = (clone.innerText || "").replace(/\s+/g, " ").trim();
+            }
+
+            return finalContent.slice(0, 14000);
+        } catch (err) {
+            return "";
+        }
+    };
+
+    // 2. DYNAMIC SYSTEM INSTRUCTION WITH LIVE PAGE DATA + RESUME KNOWLEDGE
+    const getDynamicSystemInstruction = () => {
+        const livePortfolioText = readEntireWebpage();
+
+        return `You are "Indrajeet AI Agent", the official, smart, and friendly AI representative on Indrajeet Kumar Sah's portfolio website (https://indrajeet-portfolio-nine.vercel.app/).
+
+LIVE WEBPAGE CONTENT (Read this carefully! It contains every word, heading, "Selected Works", projects, skills, and details currently on his portfolio page):
+"""
+${livePortfolioText}
+"""
+
+COMPLETE RESUME & PROFILE KNOWLEDGE:
+1. Full Name: Indrajeet Kumar Sah
+2. Role: Front-End Developer & UI/UX Designer (Currently learning advanced React.js).
+3. Location: Kolkata / West Bengal, India.
+4. Qualifications & Experience:
+   - Completed Web Development Internship at Clinchsoft Technologies, building responsive web applications and modern user interfaces.
+   - Strong expertise in JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, React.js (Learning), UI/UX Design, Python, System Design, and Git/GitHub.
+5. Featured Projects & Selected Works:
+   - Always check the LIVE WEBPAGE CONTENT above for the exact project names, descriptions, and tags listed under "Selected Works" or "Projects", plus HireReady AI and this AI-Powered Portfolio Website.
+6. Contact Details:
+   - Email: indrakumar2014.sah@gmail.com
+   - Phone / WhatsApp: +91-7890330625
+   - GitHub: github.com/indrajeet87sah-glitch
+
+CRITICAL RULES FOR VOICE & TEXT:
+1. NEVER say you don't have information about "Selected Works" or any section on the page—look inside the LIVE WEBPAGE CONTENT above and answer accurately!
+2. Write responses so they sound 100% like a natural human speaking: use 2 to 3 short, clear sentences. Avoid complex symbols, markdown asterisks (*), or bullet lists.
+3. NEVER share any Figma link.
+4. LANGUAGE RULE: If the user asks in Hindi or Hinglish (e.g., "Selected works me kya hai", "Indrajeet kahan rehte hain"), you MUST reply in clean conversational Hindi written in Devanagari script (e.g., "इंद्रजीत के सेलेक्टेड वर्क्स सेक्शन में...") so the Hindi voice pronounces every word with 100% human clarity! If the user asks in English, reply in natural English.`;
+    };
 
     const SUGGESTIONS = [
+        { label: "Selected Works 🚀", prompt: "Selected Works section mein Indrajeet ke kaun-kaun se projects hain?" },
         { label: "Top Skills 💻", prompt: "Indrajeet ke top technical skills kya hain?" },
-        { label: "Best Projects 🚀", prompt: "Show me Indrajeet's best projects." },
-        { label: "Why Hire Him? 🌟", prompt: "Why should a company hire Indrajeet for a Frontend role?" },
-        { label: "Experience 💼", prompt: "Indrajeet ka web development internship experience kaisa hai?" },
-        { label: "Contact Info 📬", prompt: "Indrajeet से contact कैसे करें?" }
+        { label: "Qualifications 🎓", prompt: "Indrajeet ki qualifications aur internship experience kya hai?" },
+        { label: "Location & Contact 📍", prompt: "Indrajeet kahan rehte hain aur unse contact kaise karein?" }
     ];
+
+    useEffect(() => {
+        if (!("speechSynthesis" in window)) return;
+        const loadVoices = () => {
+            const available = window.speechSynthesis.getVoices();
+            if (available.length > 0) voicesRef.current = available;
+        };
+        loadVoices();
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+        return () => {
+            window.speechSynthesis.onvoiceschanged = null;
+        };
+    }, []);
 
     useEffect(() => {
         try {
@@ -68,13 +130,9 @@ CRITICAL RULES:
         } catch {}
     }, [messages]);
 
-    // Stop audio when chat closes
     const stopAllAudio = () => {
-        if (activeAudioRef.current) {
-            activeAudioRef.current.pause();
-            activeAudioRef.current.currentTime = 0;
-            activeAudioRef.current = null;
-        }
+        isCancelledRef.current = true;
+        speechQueueRef.current = [];
         if ("speechSynthesis" in window) {
             window.speechSynthesis.cancel();
         }
@@ -114,14 +172,13 @@ CRITICAL RULES:
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // Auto-Scroll Portfolio Page Sections
     const triggerPageNavigation = (queryText) => {
         const q = queryText.toLowerCase();
         const sectionMap = [
-            { keywords: ["project", "work", "portfolio", "प्रोजेक्ट"], ids: ["projects", "project", "work", "portfolio"] },
+            { keywords: ["project", "selected work", "works", "portfolio", "प्रोजेक्ट"], ids: ["projects", "work", "selected-works", "portfolio"] },
             { keywords: ["skill", "tech", "stack", "स्किल"], ids: ["skills", "skill", "tech", "technologies"] },
             { keywords: ["contact", "hire", "email", "reach", "संपर्क"], ids: ["contact", "connect", "hire"] },
-            { keywords: ["about", "experience", "intern", "बारे"], ids: ["about", "experience"] }
+            { keywords: ["about", "experience", "intern", "बारे", "qualification"], ids: ["about", "experience"] }
         ];
 
         for (const group of sectionMap) {
@@ -140,81 +197,195 @@ CRITICAL RULES:
         }
     };
 
-    // Detect Action Cards
-    const detectActionCard = (userQ, aiReply) => {
-        const combined = `${userQ}${aiReply}`.toLowerCase();
-        if (combined.includes("contact") || combined.includes("email") || combined.includes("7890330625") || combined.includes("संपर्क") || combined.includes("hire")) {
+    const detectActionCard = (userQ) => {
+        const q = userQ.toLowerCase();
+        if (q.includes("contact") || q.includes("email") || q.includes("phone") || q.includes("call") || q.includes("संपर्क") || q.includes("hire")) {
             return "contact_card";
         }
-        if (combined.includes("project") || combined.includes("github") || combined.includes("प्रोजेक्ट")) {
+        if (q.includes("project") || q.includes("selected work") || q.includes("github") || q.includes("प्रोजेक्ट")) {
             return "project_card";
         }
         return null;
     };
 
-    // 🔊 WORLD-CLASS HUMAN-LIKE VOICE (Google Translate Neural Audio Stream)
-    const speakReply = (textToRead, forceSpeak = false) => {
-        if ((!voiceEnabled && !forceSpeak) || !textToRead) return;
+    // 3. ULTRA-CLEAR HUMAN-LIKE VOICE ENGINE WITH PHONETIC PRONUNCIATION & SENTENCE PACING
+    const formatTextForHumanPronunciation = (rawText, isHindi) => {
+        let text = rawText;
 
-        stopAllAudio();
+        const commonFixes = [
+            [/UI\/UX/gi, isHindi ? "यूआई और यूएक्स" : "U I and U X"],
+            [/React\.js/gi, isHindi ? "रिएक्ट जेएस" : "React J S"],
+            [/Next\.js/gi, isHindi ? "नेक्स्ट जेएस" : "Next J S"],
+            [/Node\.js/gi, isHindi ? "नोड जेएस" : "Node J S"],
+            [/HTML5/gi, isHindi ? "एचटीएमएल फाइव" : "H T M L 5"],
+            [/CSS3/gi, isHindi ? "सीएसएस थ्री" : "C S S 3"],
+            [/ES6\+/gi, isHindi ? "ईएस सिक्स प्लस" : "E S 6 plus"],
+            [/Git\/GitHub/gi, isHindi ? "गिट और गिटहब" : "Git and GitHub"],
+            [/indrakumar2014\.sah@gmail\.com/gi, isHindi ? "इंद्रकुमार दो हज़ार चौदह डॉट साह एट जीमेल डॉट कॉम" : "indrakumar 2014 dot sah at gmail dot com"],
+            [/\+91-7890330625/g, isHindi ? "प्लस नौ एक, सात आठ नौ शून्य, तीन तीन शून्य, छः दो पांच" : "plus 9 1, 7 8 9 0, 3 3 0, 6 2 5"],
+            [/7890330625/g, isHindi ? "सात आठ नौ शून्य, तीन तीन शून्य, छः दो पांच" : "7 8 9 0, 3 3 0, 6 2 5"]
+        ];
 
-        // Clean emojis and markdown symbols so audio reads exact words smoothly
-        const cleanText = textToRead
-            .replace(/[*#`_~•💻🚀💼📬🌟🎙️🔊🔇✕⚠️✅]/g, " ")
+        commonFixes.forEach(([regex, replacement]) => {
+            text = text.replace(regex, replacement);
+        });
+
+        if (isHindi) {
+            const hindiPhonetics = [
+                [/Indrajeet Kumar Sah/gi, "इंद्रजीत कुमार साह"],
+                [/Indrajeet/gi, "इंद्रजीत"],
+                [/Clinchsoft Technologies/gi, "क्लिंचसॉफ्ट टेक्नोलॉजीज"],
+                [/Clinchsoft/gi, "क्लिंचसॉफ्ट"],
+                [/Selected Works/gi, "सेलेक्टेड वर्क्स"],
+                [/HireReady AI/gi, "हायर रेडी एआई"],
+                [/Portfolio/gi, "पोर्टफोलियो"],
+                [/Frontend/gi, "फ्रंट-एंड"],
+                [/Front-End/gi, "फ्रंट-एंड"],
+                [/Developer/gi, "डेवलपर"],
+                [/Designer/gi, "डिज़ाइनर"],
+                [/JavaScript/gi, "जावास्क्रिप्ट"],
+                [/Tailwind CSS/gi, "टेलविंड सीएसएस"],
+                [/Tailwind/gi, "टेलविंड"],
+                [/React/gi, "रिएक्ट"],
+                [/Python/gi, "पायथन"],
+                [/GitHub/gi, "गिटहब"],
+                [/Kolkata/gi, "कोलकाता"],
+                [/West Bengal/gi, "वेस्ट बंगाल"],
+                [/Internship/gi, "इंटर्नशिप"],
+                [/Experience/gi, "एक्सपीरियंस"],
+                [/Qualifications/gi, "क्वालिफिकेशन्स"],
+                [/Projects/gi, "प्रोजेक्ट्स"],
+                [/Skills/gi, "स्किल्स"],
+                [/\bAI\b/g, "एआई"],
+                [/\bATS\b/g, "एटीएस"],
+                [/\bAPI\b/g, "एपीआई"],
+                [/\bmein\b/gi, "में"],
+                [/\bhain\b/gi, "हैं"],
+                [/\bhai\b/gi, "है"],
+                [/\bke\b/gi, "के"],
+                [/\bka\b/gi, "का"],
+                [/\bki\b/gi, "की"],
+                [/\bko\b/gi, "को"],
+                [/\bse\b/gi, "से"],
+                [/\baur\b/gi, "और"],
+                [/\bpar\b/gi, "पर"]
+            ];
+
+            hindiPhonetics.forEach(([regex, word]) => {
+                text = text.replace(regex, word);
+            });
+        }
+
+        return text
+            .replace(/https?:\/\/[^\s]+/g, "")
+            .replace(/[*#`_~•💻🚀💼📬🌟🎓📍🎙️🔊🔇✕⚠️✅]/g, " ")
             .replace(/\s+/g, " ")
             .trim();
+    };
 
-        if (!cleanText) return;
+    const pickBestHumanVoice = (isHindi) => {
+        const voices = voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
+        if (!voices || voices.length === 0) return null;
 
-        // Detect if text is Hindi/Hinglish or English
-        const isHindi = /[\u0900-\u097F]/.test(cleanText) || /\b(mein|hain|hai|ke|ka|ki|aur|kya|kaise)\b/i.test(cleanText);
-        const langCode = isHindi ? "hi" : "en";
-
-        try {
-            setIsSpeaking(true);
-            // Google Translate high-quality natural TTS audio stream
-            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(
-                cleanText
-            )}&tl=${langCode}&client=tw-ob`;
-
-            const audio = new Audio(audioUrl);
-            activeAudioRef.current = audio;
-
-            audio.onended = () => setIsSpeaking(false);
-            audio.onerror = () => {
-                setIsSpeaking(false);
-                // Fallback to browser speech synthesis if stream fails due to browser policy
-                fallbackBrowserSpeech(cleanText, langCode);
-            };
-
-            audio.play().catch(() => {
-                setIsSpeaking(false);
-                fallbackBrowserSpeech(cleanText, langCode);
-            });
-        } catch (e) {
-            setIsSpeaking(false);
-            fallbackBrowserSpeech(cleanText, langCode);
+        if (isHindi) {
+            return (
+                voices.find((v) => v.name.includes("Google हिन्दी")) ||
+                voices.find((v) => v.name.includes("Swara") && v.name.includes("Natural")) ||
+                voices.find((v) => v.name.includes("Swara")) ||
+                voices.find((v) => v.name.includes("Madhur")) ||
+                voices.find((v) => v.lang === "hi-IN") ||
+                voices.find((v) => v.lang.startsWith("hi"))
+            );
+        } else {
+            return (
+                voices.find((v) => v.name.includes("Neerja") && v.name.includes("Natural")) ||
+                voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") ||
+                voices.find((v) => v.name.includes("Neerja") || v.name.includes("Prabhat")) ||
+                voices.find((v) => v.lang === "en-IN") ||
+                voices.find((v) => v.name.includes("Google US English")) ||
+                voices.find((v) => v.lang.startsWith("en"))
+            );
         }
     };
 
-    // Browser Speech Synthesis Fallback
-    const fallbackBrowserSpeech = (text, lang) => {
-        if (!("speechSynthesis" in window)) return;
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = lang === "hi" ? "hi-IN" : "en-IN";
-        utterance.rate = 0.95;
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        window.speechSynthesis.speak(utterance);
+    const speakReply = (textToRead, forceSpeak = false) => {
+        if ((!voiceEnabled && !forceSpeak) || !textToRead || !("speechSynthesis" in window)) return;
+
+        stopAllAudio();
+        isCancelledRef.current = false;
+
+        const isHindi =
+            /[\u0900-\u097F]/.test(textToRead) ||
+            /\b(mein|hain|hai|ke|ka|ki|aur|kya|kaise|unke|inhone)\b/i.test(textToRead);
+
+        // FIXED TYPO HERE: Added space between const and formattedText
+        const formattedText = formatTextForHumanPronunciation(textToRead, isHindi);
+        if (!formattedText) return;
+
+        const sentences = formattedText
+            .split(/(?<=[।.!?])\s+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+        if (sentences.length === 0) return;
+
+        speechQueueRef.current = sentences;
+        const selectedVoice = pickBestHumanVoice(isHindi);
+
+        const speakNextChunk = () => {
+            if (isCancelledRef.current || speechQueueRef.current.length === 0) {
+                setIsSpeaking(false);
+                return;
+            }
+
+            const chunk = speechQueueRef.current.shift();
+            const utterance = new SpeechSynthesisUtterance(chunk);
+
+            utterance.lang = isHindi ? "hi-IN" : "en-IN";
+            if (selectedVoice) utterance.voice = selectedVoice;
+
+            utterance.rate = isHindi ? 0.96 : 0.95;
+            utterance.pitch = 1.02;
+            utterance.volume = 1.0;
+
+            utterance.onstart = () => setIsSpeaking(true);
+            utterance.onend = () => {
+                if (!isCancelledRef.current && speechQueueRef.current.length > 0) {
+                    setTimeout(speakNextChunk, 160);
+                } else {
+                    setIsSpeaking(false);
+                }
+            };
+            utterance.onerror = () => {
+                if (!isCancelledRef.current && speechQueueRef.current.length > 0) {
+                    speakNextChunk();
+                } else {
+                    setIsSpeaking(false);
+                }
+            };
+
+            window.speechSynthesis.speak(utterance);
+        };
+
+        setTimeout(() => {
+            window.speechSynthesis.resume();
+            speakNextChunk();
+        }, 60);
     };
 
-    // Dynamic Gemini Model Resolver
     const fetchFromGemini = async (apiKey, conversationMessages) => {
+        const dynamicInstruction = getDynamicSystemInstruction();
+
         const contents = [
-            { role: "user", parts: [{ text: SYSTEM_INSTRUCTION }] },
-            { role: "model", parts: [{ text: "Understood! I am Indrajeet AI Agent." }] },
+            { role: "user", parts: [{ text: dynamicInstruction }] },
+            {
+                role: "model",
+                parts: [
+                    {
+                        text: "Understood! I have read the entire live portfolio DOM content including Selected Works, Skills, and Qualifications, and I will reply in natural human-friendly sentences."
+                    }
+                ]
+            },
             ...conversationMessages.slice(-8).map((m) => ({
                 role: m.role === "user" ? "user" : "model",
                 parts: [{ text: m.text }]
@@ -223,10 +394,9 @@ CRITICAL RULES:
 
         const priorityModels = [
             activeModelRef.current,
-            "models/gemini-3.8-flash",
-            "models/gemini-flash-latest",
             "models/gemini-2.5-flash",
-            "models/gemini-2.0-flash"
+            "models/gemini-2.0-flash",
+            "models/gemini-flash-latest"
         ].filter(Boolean);
 
         for (const modelPath of priorityModels) {
@@ -283,7 +453,6 @@ CRITICAL RULES:
         throw new Error("No active Gemini model responded.");
     };
 
-    // Handle Send Message
     const handleSend = async (e, customPrompt = null) => {
         if (e) e.preventDefault();
 
@@ -295,7 +464,7 @@ CRITICAL RULES:
         if (textToSend.startsWith("AIzaSy")) {
             localStorage.setItem("indrajeet_ai_key", textToSend);
             setInput("");
-            const confirmMsg = "API Key save ho gayi hai! Ab aap mujhse kuch bhi poochiye.";
+            const confirmMsg = "आपकी एपीआई की सेव हो गई है! अब आप मुझसे इंद्रजीत के पोर्टफोलियो के बारे में कुछ भी पूछ सकते हैं।";
             setMessages((prev) => [...prev, { role: "model", text: confirmMsg }]);
             speakReply(confirmMsg);
             return;
@@ -321,10 +490,16 @@ CRITICAL RULES:
 
         try {
             const aiReply = await fetchFromGemini(apiKey, updatedMessages);
-            const actionType = detectActionCard(textToSend, aiReply);
+            const actionType = detectActionCard(textToSend);
             setMessages((prev) => [...prev, { role: "model", text: aiReply, action: actionType }]);
             setLoading(false);
-            speakReply(aiReply);
+
+            // Safe call so voice never triggers an API error message
+            try {
+                speakReply(aiReply);
+            } catch (voiceErr) {
+                console.error("Voice playback error:", voiceErr);
+            }
         } catch (err) {
             setLoading(false);
             const errMsg = `API Issue: ${err.message}.`;
@@ -332,7 +507,6 @@ CRITICAL RULES:
         }
     };
 
-    // Mobile & Desktop Mic with Auto-Send
     const startListening = async () => {
         setStatusNote("");
         stopAllAudio();
@@ -416,7 +590,7 @@ CRITICAL RULES:
     };
 
     return (
-        <div className="fixed bottom-6 right-5 sm:right-6 z-50 flex flex-col items-end">
+        <div id="ai-chatbot-root" className="fixed bottom-6 right-5 sm:right-6 z-50 flex flex-col items-end">
             <AnimatePresence>
                 {isOpen && (
                     <motion.div
@@ -438,10 +612,10 @@ CRITICAL RULES:
                                     <div className="flex items-center gap-1.5">
                                         {isSpeaking ? (
                                             <span className="text-[#72bbf6] text-[11px] font-medium flex items-center gap-1 animate-pulse">
-                                                Speaking clearly...
+                                                Speaking naturally...
                                             </span>
                                         ) : (
-                                            <p className="text-slate-400 text-[11px]">Powered by Gemini • Human Voice</p>
+                                            <p className="text-slate-400 text-[11px]">Personal Digital Assistant • Live</p>
                                         )}
                                     </div>
                                 </div>
@@ -542,7 +716,7 @@ CRITICAL RULES:
                                                 onClick={() => triggerPageNavigation("projects")}
                                                 className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer"
                                             >
-                                                Scroll to Projects
+                                                Scroll to Selected Works
                                             </button>
                                         </div>
                                     )}
@@ -589,7 +763,7 @@ CRITICAL RULES:
                             <div className="flex-1 relative flex items-center">
                                 <input
                                     type="text"
-                                    placeholder={isListening ? "Listening... Boliye 🎙️" : "Ask anything or say 'Show projects'..."}
+                                    placeholder={isListening ? "Listening... Boliye 🎙️" : "Ask about Selected Works, Skills..."}
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border transition-all ${
@@ -625,7 +799,6 @@ CRITICAL RULES:
 
             {/* SUPER ATTRACTIVE FLOATING TOGGLE BUTTON WITH PULSE RING & TOOLTIP */}
             <div className="relative flex items-center">
-                {/* Attention-grabbing Tooltip Bubble */}
                 {!isOpen && (
                     <motion.div
                         initial={{ opacity: 0, x: 10, scale: 0.9 }}
@@ -638,12 +811,10 @@ CRITICAL RULES:
                     </motion.div>
                 )}
 
-                {/* Continuous Glowing Ring */}
                 {!isOpen && (
                     <span className="absolute inset-0 rounded-full bg-[#72bbf6] opacity-75 animate-ping pointer-events-none"></span>
                 )}
 
-                {/* Main Floating Button */}
                 <motion.button
                     type="button"
                     whileHover={{ scale: 1.1 }}
