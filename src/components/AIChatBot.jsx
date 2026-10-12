@@ -11,8 +11,7 @@ export default function AIChatBot() {
     const [messages, setMessages] = useState([
         {
             role: "model",
-            text: "Hi! I am Indrajeet's Portfolio AI Assistant. Feel free to ask about his skills, projects, or anything you like!",
-            speech: "Hi! I am Indrajeet's Portfolio AI Assistant. Feel free to ask about his skills, projects, or anything you like!"
+            text: "Hi! I am Indrajeet's Portfolio AI Assistant. Ask me anything about his skills, projects, coding, or any topic!"
         }
     ]);
     const [input, setInput] = useState("");
@@ -22,20 +21,31 @@ export default function AIChatBot() {
     const chatBottomRef = useRef(null);
     const chipsRef = useRef(null);
     const recognitionRef = useRef(null);
-    const audioPlayerRef = useRef(null);
     const voicesRef = useRef([]);
+    const activeModelRef = useRef(null);
 
-    const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || localStorage.getItem("indrajeet_ai_key") || "";
+    // Reads from .env OR browser localStorage
+    const getApiKey = () => {
+        return (
+            import.meta.env.VITE_GEMINI_API_KEY ||
+            localStorage.getItem("indrajeet_ai_key") ||
+            ""
+        ).trim();
+    };
 
-    // System Prompt: Generates a clean screen text AND a 100% phonetic spoken script!
-    const SYSTEM_INSTRUCTION = `You are a friendly, smart AI assistant on Indrajeet Kumar Sah's portfolio website.
-Indrajeet is a Front-End Developer & UI/UX Designer skilled in React.js, Tailwind CSS, JavaScript, Figma, and UI engineering.
+    const SYSTEM_INSTRUCTION = `You are "Indrajeet Assistant", a smart, real, conversational AI assistant on Indrajeet Kumar Sah's portfolio website.
+About Indrajeet Kumar Sah:
+- Role: Front-End Developer & Senior UI/UX Designer based in Kolkata, West Bengal, India.
+- Core Skills: React.js, JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, Figma (UI/UX Design, Wireframing, Prototyping, Design Systems), Python, System Design, and AI Integrations.
+- Experience: Completed Web Development Internship at Clinchsoft Technologies; builds modern responsive web apps and UI systems.
+- Best Projects: HireReady AI (ATS Resume Analyzer & Voice Interviewer), AI-Powered Portfolio Website, and Modern Figma UI/UX Design Systems.
+- Contact: Email: indrakumar2014.sah@gmail.com | Phone: +91-7890330625.
 
-IMPORTANT: Respond ONLY in valid JSON format with two keys:
-{
-  "display": "Clean 2-sentence reply for the chat screen (can use English, Hinglish, or Hindi with emojis).",
-  "speech": "100% natural spoken version for voice reading. NO emojis, NO slashes (/), NO dots in tech names. If replying in Hindi/Hinglish, write the ENTIRE 'speech' string in pure Devanagari script (including English words like रिएक्ट जेएस, टेलविंड सीएसएस, यूआई और यूएक्स डिज़ाइन, फ़िग्मा, इंद्रजीत कुमार साह) so the Hindi voice reads it smoothly like a human!"
-}`;
+CRITICAL RULES:
+1. NEVER repeat generic greetings. Directly and smartly answer whatever the user just asked!
+2. If the user speaks in Hindi or Hinglish (e.g., "hum kya puch rahe hai", "skills batao"), reply in natural conversational Hindi using Devanagari script (जैसे: "आप मुझसे जो भी पूछेंगे मैं उसका सीधा जवाब दूँगा...") so the Hindi voice reads every word clearly!
+3. If the user speaks in English, reply in natural English.
+4. Keep responses concise (2 to 3 sentences max) and friendly.`;
 
     const SUGGESTIONS = [
         { label: "Top Skills 💻", prompt: "Indrajeet ke top technical skills kya hain?" },
@@ -44,7 +54,6 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
         { label: "Contact Info 📬", prompt: "Indrajeet se connect ya contact kaise karein?" }
     ];
 
-    // Load voices
     useEffect(() => {
         if (!("speechSynthesis" in window)) return;
         const loadVoices = () => {
@@ -58,14 +67,9 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
         };
     }, []);
 
-    // Stop audio when chat closes
     const stopAllAudio = () => {
         if ("speechSynthesis" in window) {
             window.speechSynthesis.cancel();
-        }
-        if (audioPlayerRef.current) {
-            audioPlayerRef.current.pause();
-            audioPlayerRef.current.currentTime = 0;
         }
         setIsSpeaking(false);
     };
@@ -103,9 +107,9 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // Convert any remaining English tech words into pure Devanagari phonetics
+    // Convert English tech words into natural spoken phonetics before reading aloud
     const toPureSpokenText = (rawText) => {
-        const isHindi = /[\u0900-\u097F]/.test(rawText) || /\b(mein|hain|hai|ke|ka|ki|aur|kya|kaise)\b/i.test(rawText);
+        const isHindi = /[\u0900-\u097F]/.test(rawText);
         let text = rawText;
 
         if (isHindi) {
@@ -135,14 +139,8 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
                 [/System Design/gi, "सिस्टम डिज़ाइन"],
                 [/Front-End/gi, "फ्रंटएंड"],
                 [/Frontend/gi, "फ्रंटएंड"],
-                [/Developer/gi, "डेवलपर"],
-                [/Designer/gi, "डिज़ाइनर"],
                 [/Portfolio/gi, "पोर्टफोलियो"],
                 [/Assistant/gi, "असिस्टेंट"],
-                [/Projects/gi, "प्रोजेक्ट्स"],
-                [/Skills/gi, "स्किल्स"],
-                [/Experience/gi, "एक्सपीरियंस"],
-                [/Internship/gi, "इंटर्नशिप"],
                 [/\bAI\b/g, "एआई"]
             ];
             map.forEach(([regex, val]) => {
@@ -158,14 +156,14 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
 
         return {
             cleanText: text
-                .replace(/[*#`_~•💻🚀💼📬🎙️🔊🔇✕]/g, " ")
+                .replace(/[*#`_~•💻🚀💼📬🎙️🔊🔇✕⚠️✅]/g, " ")
                 .replace(/\s+/g, " ")
                 .trim(),
             lang: isHindi ? "hi-IN" : "en-IN"
         };
     };
 
-    // 🔊 NATURAL SENTENCE-BY-SENTENCE VOICE ENGINE
+    // 🔊 Smooth Sentence-by-Sentence Voice Output
     const speakReply = (speechText, forceSpeak = false) => {
         if ((!voiceEnabled && !forceSpeak) || !("speechSynthesis" in window)) return;
 
@@ -174,7 +172,6 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
         const { cleanText, lang } = toPureSpokenText(speechText);
         if (!cleanText) return;
 
-        // Split by sentences (।, ., !, ?) so mobile & desktop voices read smoothly with natural pauses
         const sentences = cleanText
             .split(/(?<=[।.!?])\s+/)
             .map((s) => s.trim())
@@ -182,21 +179,18 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
 
         const voices = voicesRef.current.length > 0 ? voicesRef.current : window.speechSynthesis.getVoices();
 
-        // Pick the highest quality Neural/Natural voice available on device
         let selectedVoice = null;
         if (lang === "hi-IN") {
             selectedVoice =
                 voices.find((v) => v.name.includes("Google हिन्दी")) ||
-                voices.find((v) => v.name.includes("Natural") && v.lang.includes("hi")) ||
-                voices.find((v) => v.name.includes("Swara") || v.name.includes("Lekha")) ||
+                voices.find((v) => v.name.includes("Swara") || v.name.includes("Madhur") || v.name.includes("Lekha")) ||
                 voices.find((v) => v.lang.includes("hi"));
         } else {
             selectedVoice =
                 voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") ||
-                voices.find((v) => v.name.includes("Natural") && v.lang === "en-IN") ||
                 voices.find((v) => v.name.includes("Neerja") || v.name.includes("Rishi")) ||
                 voices.find((v) => v.lang === "en-IN") ||
-                voices.find((v) => v.name.includes("Google") && v.lang.includes("en"));
+                voices.find((v) => v.lang.includes("en"));
         }
 
         setIsSpeaking(true);
@@ -205,11 +199,8 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
             const utterance = new SpeechSynthesisUtterance(sentence);
             utterance.lang = lang;
             if (selectedVoice) utterance.voice = selectedVoice;
-
-            // Natural human pacing & warm pitch
-            utterance.rate = lang === "hi-IN" ? 0.98 : 0.96;
-            utterance.pitch = 1.02;
-            utterance.volume = 1.0;
+            utterance.rate = 0.96;
+            utterance.pitch = 1.0;
 
             if (idx === sentences.length - 1) {
                 utterance.onend = () => setIsSpeaking(false);
@@ -220,40 +211,87 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
         });
     };
 
-    // 🧠 Pre-built Dual-Format Fallbacks (Display Text + Pure Spoken Script!)
-    const getPortfolioFallback = (query) => {
-        const q = query.toLowerCase();
-        if (q.includes("skill") || q.includes("tech")) {
-            return {
-                display: "Indrajeet's top skills include React.js, JavaScript (ES6+), Tailwind CSS, HTML5/CSS3, Figma (UI/UX Design), Python, and System Design. 💻",
-                speech: "इंद्रजीत के मुख्य टेक्निकल स्किल्स में रिएक्ट जेएस, जावास्क्रिप्ट, टेलविंड सीएसएस, एचटीएमएल, सीएसएस, फ़िग्मा यूआई और यूएक्स डिज़ाइन, और पायथन शामिल हैं।"
-            };
+    // 🔍 Automatically discovers the exact working Gemini model for your API Key
+    const fetchFromGemini = async (apiKey, conversationMessages) => {
+        const contents = [
+            { role: "user", parts: [{ text: SYSTEM_INSTRUCTION }] },
+            { role: "model", parts: [{ text: "Understood! I will answer every question directly and naturally." }] },
+            ...conversationMessages.slice(-8).map((m) => ({
+                role: m.role === "user" ? "user" : "model",
+                parts: [{ text: m.text }]
+            }))
+        ];
+
+        // 1. Try cached working model or top priority models first
+        const priorityModels = [
+            activeModelRef.current,
+            "models/gemini-3.8-flash",
+            "models/gemini-flash-latest",
+            "models/gemini-2.5-flash",
+            "models/gemini-2.0-flash"
+        ].filter(Boolean);
+
+        for (const modelPath of priorityModels) {
+            try {
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${apiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents })
+                    }
+                );
+                const data = await res.json();
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    activeModelRef.current = modelPath;
+                    return text.trim();
+                }
+            } catch (e) {}
         }
-        if (q.includes("project")) {
-            return {
-                display: "Indrajeet's best projects include HireReady AI (ATS Resume Analyzer & Voice Interviewer), this AI-Powered Portfolio Website, and responsive Figma UI/UX Design Systems. 🚀",
-                speech: "इंद्रजीत के बेस्ट प्रोजेक्ट्स में हायर रेडी एआई रेज़्यूमे एनालाइज़र, यह एआई पावर्ड पोर्टफोलियो वेबसाइट, और आधुनिक रिस्पॉन्सिव फ़िग्मा डिज़ाइन शामिल हैं।"
-            };
+
+        // 2. Ask Google API for the exact list of models enabled on this key
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        const listData = await listRes.json();
+
+        if (listData.error) {
+            throw new Error(listData.error.message);
         }
-        if (q.includes("experience") || q.includes("background") || q.includes("intern")) {
-            return {
-                display: "Indrajeet completed a Web Development Internship at Clinchsoft Technologies and has strong hands-on experience building modern React and UI/UX web applications. 💼",
-                speech: "इंद्रजीत ने क्लिंचसॉफ्ट टेक्नोलॉजीज में वेब डेवलपमेंट इंटर्नशिप पूरी की है, और उन्हें रिएक्ट और यूआई यूएक्स में आधुनिक वेब एप्लिकेशन बनाने का शानदार अनुभव है।"
-            };
+
+        const availableModels = (listData.models || []).filter((m) =>
+            m.supportedGenerationMethods?.includes("generateContent")
+        );
+
+        // Prefer flash models first
+        availableModels.sort((a, b) => {
+            const aFlash = a.name.includes("flash") ? -1 : 1;
+            const bFlash = b.name.includes("flash") ? -1 : 1;
+            return aFlash - bFlash;
+        });
+
+        for (const mod of availableModels) {
+            try {
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/${mod.name}:generateContent?key=${apiKey}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contents })
+                    }
+                );
+                const data = await res.json();
+                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    activeModelRef.current = mod.name;
+                    return text.trim();
+                }
+            } catch (e) {}
         }
-        if (q.includes("contact") || q.includes("connect") || q.includes("hire") || q.includes("email")) {
-            return {
-                display: "You can reach Indrajeet Kumar Sah via Email at indrakumar2014.sah@gmail.com or Phone at +91-7890330625. 📬",
-                speech: "आप इंद्रजीत कुमार साह से उनके ईमेल या फ़ोन नंबर के ज़रिए सीधा संपर्क कर सकते हैं, जिसकी जानकारी स्क्रीन पर दी गई है।"
-            };
-        }
-        return {
-            display: "Hello! Main Indrajeet Kumar Sah ka Portfolio AI Assistant hoon. Aap mujhse unke React & UI/UX skills, projects, ya experience ke baare mein kuch bhi pooch sakte hain!",
-            speech: "नमस्ते! मैं इंद्रजीत कुमार साह का पोर्टफोलियो एआई असिस्टेंट हूँ। आप मुझसे उनके रिएक्ट और यूआई यूएक्स स्किल्स, प्रोजेक्ट्स, या एक्सपीरियंस के बारे में कुछ भी पूछ सकते हैं।"
-        };
+
+        throw new Error("No active Gemini model responded.");
     };
 
-    // 💬 Send Message Function
+    // 💬 Handle Send Message
     const handleSend = async (e, customPrompt = null) => {
         if (e) e.preventDefault();
 
@@ -262,66 +300,45 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
 
         stopAllAudio();
 
-        setMessages((prev) => [...prev, { role: "user", text: textToSend }]);
+        // Allow user to paste their AIzaSy... key directly inside chat if live site is missing .env!
+        if (textToSend.startsWith("AIzaSy")) {
+            localStorage.setItem("indrajeet_ai_key", textToSend);
+            setInput("");
+            const confirmMsg = "✅ API Key save ho gayi hai! Ab aap mujhse duniya ka koi bhi sawal poochiye!";
+            setMessages((prev) => [...prev, { role: "model", text: confirmMsg }]);
+            speakReply(confirmMsg);
+            return;
+        }
+
+        const updatedMessages = [...messages, { role: "user", text: textToSend }];
+        setMessages(updatedMessages);
         setInput("");
         setLoading(true);
         setStatusNote("");
 
-        const fullPrompt = `${SYSTEM_INSTRUCTION}\n\nUser Question: ${textToSend}`;
-        let displayReply = "";
-        let speechReply = "";
+        const apiKey = getApiKey();
 
-        if (API_KEY && API_KEY.trim()) {
-            const cleanKey = API_KEY.trim();
-            const candidateModels = [
-                "gemini-3.8-flash",
-                "gemini-2.5-flash",
-                "gemini-2.0-flash",
-                "gemini-1.5-flash"
-            ];
-
-            for (const modelName of candidateModels) {
-                try {
-                    const res = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`,
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                contents: [{ parts: [{ text: fullPrompt }] }]
-                            })
-                        }
-                    );
-                    const data = await res.json();
-                    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (rawText) {
-                        try {
-                            const cleanedJson = rawText.replace(/```json|```/g, "").trim();
-                            const parsed = JSON.parse(cleanedJson);
-                            displayReply = parsed.display || rawText;
-                            speechReply = parsed.speech || parsed.display || rawText;
-                        } catch {
-                            displayReply = rawText.trim();
-                            speechReply = rawText.trim();
-                        }
-                        break;
-                    }
-                } catch (err) {}
-            }
+        if (!apiKey) {
+            setLoading(false);
+            const missingKeyMsg =
+                "⚠️ Live website par Gemini API Key nahi mili! Kripya apni 'AIzaSy...' wali key yahan chat box mein paste karke Send kar dein (ya Vercel Environment Variables mein VITE_GEMINI_API_KEY add karein).";
+            setMessages((prev) => [...prev, { role: "model", text: missingKeyMsg }]);
+            return;
         }
 
-        if (!displayReply) {
-            const fb = getPortfolioFallback(textToSend);
-            displayReply = fb.display;
-            speechReply = fb.speech;
+        try {
+            const aiReply = await fetchFromGemini(apiKey, updatedMessages);
+            setMessages((prev) => [...prev, { role: "model", text: aiReply }]);
+            setLoading(false);
+            speakReply(aiReply);
+        } catch (err) {
+            setLoading(false);
+            const errMsg = `⚠️ API Issue: ${err.message}. Agar aapki key nayi hai toh use chat box mein paste karke Send karein.`;
+            setMessages((prev) => [...prev, { role: "model", text: errMsg }]);
         }
-
-        setMessages((prev) => [...prev, { role: "model", text: displayReply, speech: speechReply }]);
-        setLoading(false);
-        speakReply(speechReply);
     };
 
-    // 🎙️ CHATGPT-STYLE MOBILE & DESKTOP MIC
+    // 🎙️ Mobile & Desktop Mic with Auto-Send
     const startListening = async () => {
         setStatusNote("");
         stopAllAudio();
@@ -343,7 +360,7 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) {
-            setStatusNote("⚠️ Kripya Chrome ya Safari browser use karein.");
+            setStatusNote("⚠️ Kripya Chrome ya Edge browser use karein.");
             return;
         }
 
@@ -433,7 +450,7 @@ IMPORTANT: Respond ONLY in valid JSON format with two keys:
                                         } else {
                                             setVoiceEnabled(true);
                                             const lastMsg = [...messages].reverse().find((m) => m.role === "model");
-                                            if (lastMsg) speakReply(lastMsg.speech || lastMsg.text, true);
+                                            if (lastMsg) speakReply(lastMsg.text, true);
                                         }
                                     }}
                                     className={`text-xs px-2 py-0.5 rounded-full border transition cursor-pointer ${
