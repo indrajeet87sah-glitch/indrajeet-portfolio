@@ -8,15 +8,24 @@ export default function AIChatBot() {
     const [voiceEnabled, setVoiceEnabled] = useState(true);
     const [isSpeaking, setIsSpeaking] = useState(false);
     const [statusNote, setStatusNote] = useState("");
-    const [messages, setMessages] = useState([
-        {
-            role: "model",
-            text: "Hi! I am Indrajeet's Portfolio AI Assistant. Ask me anything about his skills, projects, coding, or any topic!"
-        }
-    ]);
     const [input, setInput] = useState("");
     const [loading, setLoading] = useState(false);
     const [isListening, setIsListening] = useState(false);
+
+    const INITIAL_MSG = {
+        role: "model",
+        text: "Hi! I am Indrajeet's AI Agent. Ask me about his skills, projects, or say 'Go to projects' and I will navigate the page for you!",
+        action: "quick_links"
+    };
+
+    const [messages, setMessages] = useState(() => {
+        try {
+            const saved = sessionStorage.getItem("indrajeet_chat_history");
+            return saved ? JSON.parse(saved) : [INITIAL_MSG];
+        } catch {
+            return [INITIAL_MSG];
+        }
+    });
 
     const chatBottomRef = useRef(null);
     const chipsRef = useRef(null);
@@ -24,7 +33,6 @@ export default function AIChatBot() {
     const voicesRef = useRef([]);
     const activeModelRef = useRef(null);
 
-    // Reads from .env OR browser localStorage
     const getApiKey = () => {
         return (
             import.meta.env.VITE_GEMINI_API_KEY ||
@@ -33,26 +41,33 @@ export default function AIChatBot() {
         ).trim();
     };
 
-    const SYSTEM_INSTRUCTION = `You are "Indrajeet Assistant", a smart, real, conversational AI assistant on Indrajeet Kumar Sah's portfolio website.
+    const SYSTEM_INSTRUCTION = `You are "Indrajeet AI Agent", an advanced, friendly, and smart AI assistant on Indrajeet Kumar Sah's portfolio website.
 About Indrajeet Kumar Sah:
-- Role: Front-End Developer & Senior UI/UX Designer based in Kolkata, West Bengal, India.
-- Core Skills: React.js, JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, Figma (UI/UX Design, Wireframing, Prototyping, Design Systems), Python, System Design, and AI Integrations.
-- Experience: Completed Web Development Internship at Clinchsoft Technologies; builds modern responsive web apps and UI systems.
-- Best Projects: HireReady AI (ATS Resume Analyzer & Voice Interviewer), AI-Powered Portfolio Website, and Modern Figma UI/UX Design Systems.
-- Contact: Email: indrakumar2014.sah@gmail.com | Phone: +91-7890330625.
+- Role: Front-End Developer & Senior UI/UX Designer (Kolkata, West Bengal, India).
+- Technical Skills: React.js, JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, Figma (UI/UX Design, Wireframing, Prototyping, Design Systems), Python, System Design, Git/GitHub, and AI API Integrations.
+- Experience: Completed Web Development Internship at Clinchsoft Technologies; builds high-performance responsive web applications and modern UI/UX systems.
+- Featured Projects: HireReady AI (ATS Resume Diagnostics & Voice Mock Interviewer), AI-Powered Portfolio with Voice Agent, and Figma UI/UX Design Systems.
+- Contact: Email: indrakumar2014.sah@gmail.com | Phone: +91-7890330625 | GitHub: github.com/indrajeet87sah-glitch.
 
 CRITICAL RULES:
-1. NEVER repeat generic greetings. Directly and smartly answer whatever the user just asked!
-2. If the user speaks in Hindi or Hinglish (e.g., "hum kya puch rahe hai", "skills batao"), reply in natural conversational Hindi using Devanagari script (जैसे: "आप मुझसे जो भी पूछेंगे मैं उसका सीधा जवाब दूँगा...") so the Hindi voice reads every word clearly!
-3. If the user speaks in English, reply in natural English.
-4. Keep responses concise (2 to 3 sentences max) and friendly.`;
+1. Directly and smartly answer any question (coding, UI/UX, career, HR questions, or general knowledge) in 2 to 3 concise sentences.
+2. If the user writes or speaks in Hindi or Hinglish, reply in clean conversational Hindi using Devanagari script so the Hindi voice reads it smoothly!
+3. If the user writes in English, reply in natural English.`;
 
     const SUGGESTIONS = [
         { label: "Top Skills 💻", prompt: "Indrajeet ke top technical skills kya hain?" },
-        { label: "Best Projects 🚀", prompt: "Indrajeet ke best projects ke baare mein batao." },
-        { label: "Experience 💼", prompt: "Indrajeet ka web development background kaisa hai?" },
-        { label: "Contact Info 📬", prompt: "Indrajeet se connect ya contact kaise karein?" }
+        { label: "Best Projects 🚀", prompt: "Show me Indrajeet's best projects." },
+        { label: "Why Hire Him? 🌟", prompt: "Why should a company hire Indrajeet for a Frontend or UI/UX role?" },
+        { label: "Experience 💼", prompt: "Indrajeet ka web development internship experience kaisa hai?" },
+        { label: "Contact Info 📬", prompt: "Indrajeet se contact kaise karein?" }
     ];
+
+    // Save chat history in session
+    useEffect(() => {
+        try {
+            sessionStorage.setItem("indrajeet_chat_history", JSON.stringify(messages));
+        } catch {}
+    }, [messages]);
 
     useEffect(() => {
         if (!("speechSynthesis" in window)) return;
@@ -107,15 +122,53 @@ CRITICAL RULES:
         chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages, loading]);
 
-    // Convert English tech words into natural spoken phonetics before reading aloud
+    // 🧭 AI AGENT FEATURE 1: Auto-Scroll Portfolio Page Sections
+    const triggerPageNavigation = (queryText) => {
+        const q = queryText.toLowerCase();
+        const sectionMap = [
+            { keywords: ["project", "work", "portfolio", "प्रोजेक्ट"], ids: ["projects", "project", "work", "portfolio"] },
+            { keywords: ["skill", "tech", "stack", "स्किल"], ids: ["skills", "skill", "tech", "technologies"] },
+            { keywords: ["contact", "hire", "email", "reach", "संपर्क"], ids: ["contact", "connect", "hire"] },
+            { keywords: ["about", "experience", "intern", "बारे"], ids: ["about", "experience"] }
+        ];
+
+        for (const group of sectionMap) {
+            if (group.keywords.some((kw) => q.includes(kw))) {
+                for (const id of group.ids) {
+                    const el =
+                        document.getElementById(id) ||
+                        document.querySelector(`[data-section="${id}"]`) ||
+                        document.querySelector(`section#${id}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "start" });
+                        break;
+                    }
+                }
+            }
+        }
+    };
+
+    // 🃏 AI AGENT FEATURE 2: Detect Which Smart Action Buttons to Show
+    const detectActionCard = (userQ, aiReply) => {
+        const combined = `${userQ}${aiReply}`.toLowerCase();
+        if (combined.includes("contact") || combined.includes("email") || combined.includes("7890330625") || combined.includes("संपर्क") || combined.includes("hire")) {
+            return "contact_card";
+        }
+        if (combined.includes("project") || combined.includes("github") || combined.includes("figma") || combined.includes("प्रोजेक्ट")) {
+            return "project_card";
+        }
+        return null;
+    };
+
+    // Convert Tech Terms for Natural Pronunciation
     const toPureSpokenText = (rawText) => {
         const isHindi = /[\u0900-\u097F]/.test(rawText);
         let text = rawText;
 
         if (isHindi) {
             const map = [
-                [/indrakumar2014\.sah@gmail\.com/gi, "इंद्रकुमार दो हज़ार चौदह डॉट साह ऐट जीमेल डॉट कॉम"],
-                [/\+91-7890330625/g, "प्लस नाइन वन, सेवन एट नाइन ज़ीरो, डबल थ्री ज़ीरो, सिक्स टू फाइव"],
+                [/indrakumar2014\.sah@gmail\.com/gi, "इंद्रकुमार के ईमेल"],
+                [/\+91-7890330625/g, "उनके मोबाइल नंबर"],
                 [/Indrajeet Kumar Sah/gi, "इंद्रजीत कुमार साह"],
                 [/Indrajeet/gi, "इंद्रजीत"],
                 [/Clinchsoft Technologies/gi, "क्लिंचसॉफ्ट टेक्नोलॉजीज"],
@@ -126,8 +179,6 @@ CRITICAL RULES:
                 [/HTML5\/CSS3/gi, "एचटीएमएल फाइव और सीएसएस थ्री"],
                 [/HTML5/gi, "एचटीएमएल फाइव"],
                 [/CSS3/gi, "सीएसएस थ्री"],
-                [/HTML/gi, "एचटीएमएल"],
-                [/CSS/gi, "सीएसएस"],
                 [/React\.js/gi, "रिएक्ट जेएस"],
                 [/React/gi, "रिएक्ट"],
                 [/JavaScript \(ES6\+\)/gi, "जावास्क्रिप्ट ईएस सिक्स"],
@@ -139,8 +190,6 @@ CRITICAL RULES:
                 [/System Design/gi, "सिस्टम डिज़ाइन"],
                 [/Front-End/gi, "फ्रंटएंड"],
                 [/Frontend/gi, "फ्रंटएंड"],
-                [/Portfolio/gi, "पोर्टफोलियो"],
-                [/Assistant/gi, "असिस्टेंट"],
                 [/\bAI\b/g, "एआई"]
             ];
             map.forEach(([regex, val]) => {
@@ -156,14 +205,14 @@ CRITICAL RULES:
 
         return {
             cleanText: text
-                .replace(/[*#`_~•💻🚀💼📬🎙️🔊🔇✕⚠️✅]/g, " ")
+                .replace(/[*#`_~•💻🚀💼📬🌟🎙️🔊🔇✕⚠️✅]/g, " ")
                 .replace(/\s+/g, " ")
                 .trim(),
             lang: isHindi ? "hi-IN" : "en-IN"
         };
     };
 
-    // 🔊 Smooth Sentence-by-Sentence Voice Output
+    // 🔊 Natural Sentence-by-Sentence Voice Output
     const speakReply = (speechText, forceSpeak = false) => {
         if ((!voiceEnabled && !forceSpeak) || !("speechSynthesis" in window)) return;
 
@@ -211,18 +260,17 @@ CRITICAL RULES:
         });
     };
 
-    // 🔍 Automatically discovers the exact working Gemini model for your API Key
+    // 🔍 Dynamic Gemini Model Resolver
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const contents = [
             { role: "user", parts: [{ text: SYSTEM_INSTRUCTION }] },
-            { role: "model", parts: [{ text: "Understood! I will answer every question directly and naturally." }] },
+            { role: "model", parts: [{ text: "Understood! I am Indrajeet AI Agent." }] },
             ...conversationMessages.slice(-8).map((m) => ({
                 role: m.role === "user" ? "user" : "model",
                 parts: [{ text: m.text }]
             }))
         ];
 
-        // 1. Try cached working model or top priority models first
         const priorityModels = [
             activeModelRef.current,
             "models/gemini-3.8-flash",
@@ -250,7 +298,6 @@ CRITICAL RULES:
             } catch (e) {}
         }
 
-        // 2. Ask Google API for the exact list of models enabled on this key
         const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
         const listData = await listRes.json();
 
@@ -262,12 +309,7 @@ CRITICAL RULES:
             m.supportedGenerationMethods?.includes("generateContent")
         );
 
-        // Prefer flash models first
-        availableModels.sort((a, b) => {
-            const aFlash = a.name.includes("flash") ? -1 : 1;
-            const bFlash = b.name.includes("flash") ? -1 : 1;
-            return aFlash - bFlash;
-        });
+        availableModels.sort((a, b) => (a.name.includes("flash") ? -1 : 1) - (b.name.includes("flash") ? -1 : 1));
 
         for (const mod of availableModels) {
             try {
@@ -291,7 +333,7 @@ CRITICAL RULES:
         throw new Error("No active Gemini model responded.");
     };
 
-    // 💬 Handle Send Message
+    // 💬 Handle Send Message + Page Navigation + Action Cards
     const handleSend = async (e, customPrompt = null) => {
         if (e) e.preventDefault();
 
@@ -300,15 +342,18 @@ CRITICAL RULES:
 
         stopAllAudio();
 
-        // Allow user to paste their AIzaSy... key directly inside chat if live site is missing .env!
+        // Allow instant API key setup inside chat
         if (textToSend.startsWith("AIzaSy")) {
             localStorage.setItem("indrajeet_ai_key", textToSend);
             setInput("");
-            const confirmMsg = "✅ API Key save ho gayi hai! Ab aap mujhse duniya ka koi bhi sawal poochiye!";
+            const confirmMsg = "✅ API Key save ho gayi hai! Ab aap mujhse kuch bhi poochiye!";
             setMessages((prev) => [...prev, { role: "model", text: confirmMsg }]);
             speakReply(confirmMsg);
             return;
         }
+
+        // Scroll page if user asked for a section
+        triggerPageNavigation(textToSend);
 
         const updatedMessages = [...messages, { role: "user", text: textToSend }];
         setMessages(updatedMessages);
@@ -321,19 +366,20 @@ CRITICAL RULES:
         if (!apiKey) {
             setLoading(false);
             const missingKeyMsg =
-                "⚠️ Live website par Gemini API Key nahi mili! Kripya apni 'AIzaSy...' wali key yahan chat box mein paste karke Send kar dein (ya Vercel Environment Variables mein VITE_GEMINI_API_KEY add karein).";
+                "⚠️ Live website par Gemini API Key set nahi hai! Apni 'AIzaSy...' wali key yahan chat box mein paste karke Send kar dein.";
             setMessages((prev) => [...prev, { role: "model", text: missingKeyMsg }]);
             return;
         }
 
         try {
             const aiReply = await fetchFromGemini(apiKey, updatedMessages);
-            setMessages((prev) => [...prev, { role: "model", text: aiReply }]);
+            const actionType = detectActionCard(textToSend, aiReply);
+            setMessages((prev) => [...prev, { role: "model", text: aiReply, action: actionType }]);
             setLoading(false);
             speakReply(aiReply);
         } catch (err) {
             setLoading(false);
-            const errMsg = `⚠️ API Issue: ${err.message}. Agar aapki key nayi hai toh use chat box mein paste karke Send karein.`;
+            const errMsg = `⚠️ API Issue: ${err.message}.`;
             setMessages((prev) => [...prev, { role: "model", text: errMsg }]);
         }
     };
@@ -415,6 +461,12 @@ CRITICAL RULES:
         }
     };
 
+    const clearChat = () => {
+        stopAllAudio();
+        sessionStorage.removeItem("indrajeet_chat_history");
+        setMessages([INITIAL_MSG]);
+    };
+
     return (
         <div className="fixed bottom-6 right-5 sm:right-6 z-50 flex flex-col items-end">
             <AnimatePresence>
@@ -424,23 +476,31 @@ CRITICAL RULES:
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 20, scale: 0.95 }}
                         transition={{ duration: 0.25 }}
-                        className="mb-4 w-[330px] sm:w-[380px] h-[480px] bg-[#121724] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-md"
+                        className="mb-4 w-[330px] sm:w-[385px] h-[500px] bg-[#121724] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden backdrop-blur-md"
                     >
                         {/* Header */}
-                        <div className="px-5 py-4 bg-[#1a2133] border-b border-white/5 flex items-center justify-between">
+                        <div className="px-5 py-3.5 bg-[#1a2133] border-b border-white/5 flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-[#72bbf6]/20 text-[#72bbf6] flex items-center justify-center font-bold text-sm">
+                                <div className="relative w-8 h-8 rounded-full bg-[#72bbf6]/20 text-[#72bbf6] flex items-center justify-center font-bold text-sm">
                                     AI
+                                    <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#1a2133] rounded-full"></span>
                                 </div>
                                 <div>
-                                    <h4 className="text-white text-sm font-semibold leading-tight">Indrajeet Assistant</h4>
-                                    <p className="text-slate-400 text-[11px]">
-                                        {isSpeaking ? "🔊 Speaking..." : "Powered by Gemini"}
-                                    </p>
+                                    <h4 className="text-white text-sm font-semibold leading-tight">Indrajeet AI Agent</h4>
+                                    <div className="flex items-center gap-1.5">
+                                        {isSpeaking ? (
+                                            <span className="text-[#72bbf6] text-[11px] font-medium flex items-center gap-1 animate-pulse">
+                                                🔊 Speaking...
+                                            </span>
+                                        ) : (
+                                            <p className="text-slate-400 text-[11px]">Powered by Gemini • Voice & Nav</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2">
+                                {/* Voice Mute/Unmute Toggle */}
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -458,8 +518,19 @@ CRITICAL RULES:
                                             ? "border-[#72bbf6]/40 text-[#72bbf6] bg-[#72bbf6]/10"
                                             : "border-white/10 text-slate-400"
                                     }`}
+                                    title="Toggle Voice"
                                 >
                                     {voiceEnabled ? "🔊" : "🔇"}
+                                </button>
+
+                                {/* Reset Chat Button */}
+                                <button
+                                    type="button"
+                                    onClick={clearChat}
+                                    className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded border border-white/10 cursor-pointer"
+                                    title="Clear Chat"
+                                >
+                                    ↻
                                 </button>
 
                                 <button
@@ -483,7 +554,7 @@ CRITICAL RULES:
                             {messages.map((m, idx) => (
                                 <div key={idx} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
                                     <div
-                                        className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl ${
+                                        className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl ${
                                             m.role === "user"
                                                 ? "bg-[#72bbf6] text-[#090d16] font-medium rounded-br-none"
                                                 : "bg-[#1e2538] text-slate-200 border border-white/5 rounded-bl-none"
@@ -491,12 +562,54 @@ CRITICAL RULES:
                                     >
                                         {m.text}
                                     </div>
+
+                                    {/* Smart Interactive Action Cards inside Chat */}
+                                    {m.role === "model" && m.action === "contact_card" && (
+                                        <div className="mt-2 flex flex-wrap gap-1.5 max-w-[85%]">
+                                            <a
+                                                href="mailto:indrakumar2014.sah@gmail.com"
+                                                className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
+                                            >
+                                                ✉️ Email Indrajeet
+                                            </a>
+                                            <a
+                                                href="tel:+917890330625"
+                                                className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
+                                            >
+                                                📞 Call +91-7890330625
+                                            </a>
+                                        </div>
+                                    )}
+
+                                    {m.role === "model" && m.action === "project_card" && (
+                                        <div className="mt-2 flex flex-wrap gap-1.5 max-w-[85%]">
+                                            <a
+                                                href="https://github.com/indrajeet87sah-glitch"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
+                                            >
+                                                💻 View GitHub
+                                            </a>
+                                            <a
+                                                href="https://www.figma.com/design/15uvawBxskDphVIi6Sb699/Indrajeet-Kumar-Sah---UI-UX-Portfolio"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
+                                            >
+                                                🎨 Figma UI/UX Portfolio
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
+
                             {loading && (
                                 <div className="flex justify-start">
-                                    <div className="bg-[#1e2538] text-slate-400 px-3 py-2 rounded-2xl rounded-bl-none border border-white/5 text-[11px]">
-                                        Typing...
+                                    <div className="bg-[#1e2538] text-slate-400 px-3 py-2 rounded-2xl rounded-bl-none border border-white/5 text-[11px] flex items-center gap-1.5">
+                                        <span className="w-1.5 h-1.5 bg-[#72bbf6] rounded-full animate-bounce"></span>
+                                        <span className="w-1.5 h-1.5 bg-[#72bbf6] rounded-full animate-bounce [animation-delay:0.15s]"></span>
+                                        <span className="w-1.5 h-1.5 bg-[#72bbf6] rounded-full animate-bounce [animation-delay:0.3s]"></span>
                                     </div>
                                 </div>
                             )}
@@ -531,7 +644,7 @@ CRITICAL RULES:
                             <div className="flex-1 relative flex items-center">
                                 <input
                                     type="text"
-                                    placeholder={isListening ? "Listening... Boliye 🎙️" : "Ask anything..."}
+                                    placeholder={isListening ? "Listening... Boliye 🎙️" : "Ask anything or say 'Show projects'..."}
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                     className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border transition-all ${
