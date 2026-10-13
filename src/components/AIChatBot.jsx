@@ -102,7 +102,7 @@ COMPLETE RESUME & PROFILE KNOWLEDGE:
 
 CRITICAL RULES FOR SMART RESPONSES:
 1. NEVER say you don't have information about "Selected Works" or any portfolio section—extract the exact project names and details from the LIVE WEBPAGE CONTENT above!
-2. Be brief but highly impactful. Use 2 to 3 concise, persuasive sentences. Be a hype-man for Indrajeet's skills without sounding unnatural.
+2. Be brief but highly impactful. Use 1 to 2 concise, persuasive sentences max. Be a hype-man for Indrajeet's skills without sounding unnatural.
 3. NEVER share any Figma link.
 4. If asked in Hindi/Hinglish, reply in pure, conversational Hindi (Devanagari script) so the voice engine sounds like a real professional Indian assistant.`;
     };
@@ -303,28 +303,24 @@ CRITICAL RULES FOR SMART RESPONSES:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ 3. PERMANENT FUTURE-PROOF API ENGINE
+    // ⚡ 3. ULTRA-FAST DIRECT API CALL (No heavy fallback loops)
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
         const contents = [
             { role: "user", parts: [{ text: dynamicInstruction }] },
-            { role: "model", parts: [{ text: "Understood! I will reply smartly and perfectly represent Indrajeet." }] },
-            ...conversationMessages.slice(-6).map((m) => ({
+            { role: "model", parts: [{ text: "Understood! I will reply smartly and super fast." }] },
+            // Only send the last 4 messages instead of 8 to reduce payload and speed up response
+            ...conversationMessages.slice(-4).map((m) => ({
                 role: m.role === "user" ? "user" : "model",
                 parts: [{ text: m.text }]
             }))
         ];
 
-        // PRIORITIZE THE EXACT MODEL REQUIRED BY GOOGLE, THEN FALLBACK TO LATEST
-        const priorityModels = [
-            "gemini-3.8-flash",
-            "gemini-flash-latest"
-        ];
-
+        // Hit the fastest available model directly
+        const priorityModels = ["gemini-3.8-flash", "gemini-flash-latest"];
         let lastError = null;
 
-        // Step 1: Try the exact priority models directly for maximum speed
         for (const model of priorityModels) {
             try {
                 const res = await fetch(
@@ -347,39 +343,7 @@ CRITICAL RULES FOR SMART RESPONSES:
             }
         }
 
-        // Step 2: Auto-Healing System. If Google deletes 3.8 in the future, it automatically finds the newest one!
-        try {
-            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-            const listData = await listRes.json();
-            
-            if (!listData.error && listData.models) {
-                // Find all flash models that support content generation
-                const availableModels = listData.models.filter(m => 
-                    m.supportedGenerationMethods?.includes("generateContent") && 
-                    m.name.includes("flash")
-                );
-                
-                // Sort descending to always pick the highest version (e.g., 4.0 over 3.8)
-                availableModels.sort((a, b) => b.name.localeCompare(a.name));
-                
-                if (availableModels.length > 0) {
-                     const res = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/${availableModels[0].name}:generateContent?key=${apiKey}`,
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ contents })
-                        }
-                    );
-                    const data = await res.json();
-                    if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                        return data.candidates[0].content.parts[0].text.trim();
-                    }
-                }
-            }
-        } catch(e) {}
-
-        throw new Error(lastError || "API Issue: Ensure your API key is valid and has model access.");
+        throw new Error(lastError || "API Server is busy. Please try again.");
     };
 
     const handleSend = async (e, customPrompt = null) => {
