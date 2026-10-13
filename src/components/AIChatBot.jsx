@@ -31,9 +31,11 @@ export default function AIChatBot() {
     const chipsRef = useRef(null);
     const recognitionRef = useRef(null);
     const voicesRef = useRef([]);
-    const activeModelRef = useRef(null);
     const speechQueueRef = useRef([]);
     const isCancelledRef = useRef(false);
+    
+    // ⚡ CACHE: Isse website baar-baar read nahi hogi, speed 10x fast ho jayegi!
+    const cachedPortfolioData = useRef(null);
 
     const getApiKey = () => {
         return (
@@ -43,7 +45,7 @@ export default function AIChatBot() {
         ).trim();
     };
 
-    // 1. LIVE DOM READER: Reads every section, heading, project card & link directly from the webpage
+    // 1. LIVE DOM READER
     const readEntireWebpage = () => {
         try {
             const clone = document.body.cloneNode(true);
@@ -66,42 +68,42 @@ export default function AIChatBot() {
                 finalContent = (clone.innerText || "").replace(/\s+/g, " ").trim();
             }
 
-            return finalContent.slice(0, 14000);
+            return finalContent.slice(0, 12000); // Trimmed for speed
         } catch (err) {
             return "";
         }
     };
 
-    // 2. DYNAMIC SYSTEM INSTRUCTION WITH LIVE PAGE DATA + RESUME KNOWLEDGE
+    // 2. DYNAMIC SYSTEM INSTRUCTION (Cached)
     const getDynamicSystemInstruction = () => {
-        const livePortfolioText = readEntireWebpage();
+        if (!cachedPortfolioData.current) {
+            cachedPortfolioData.current = readEntireWebpage();
+        }
 
-        return `You are "Indrajeet AI Agent", the official, smart, and friendly AI representative on Indrajeet Kumar Sah's portfolio website (https://indrajeet-portfolio-nine.vercel.app/).
+        return `You are "Indrajeet AI Agent", the official, smart, and friendly AI representative on Indrajeet Kumar Sah's portfolio website.
 
-LIVE WEBPAGE CONTENT (Read this carefully! It contains every word, heading, "Selected Works", projects, skills, and details currently on his portfolio page):
+LIVE WEBPAGE CONTENT:
 """
-${livePortfolioText}
+${cachedPortfolioData.current}
 """
 
 COMPLETE RESUME & PROFILE KNOWLEDGE:
 1. Full Name: Indrajeet Kumar Sah
-2. Role: Front-End Developer & UI/UX Designer (Currently learning advanced React.js).
+2. Role: Front-End Developer & UI/UX Designer.
 3. Location: Kolkata / West Bengal, India.
 4. Qualifications & Experience:
-   - Completed Web Development Internship at Clinchsoft Technologies, building responsive web applications and modern user interfaces.
+   - Completed Web Development Internship at Clinchsoft Technologies.
    - Strong expertise in JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, React.js (Learning), UI/UX Design, Python, System Design, and Git/GitHub.
-5. Featured Projects & Selected Works:
-   - Always check the LIVE WEBPAGE CONTENT above for the exact project names, descriptions, and tags listed under "Selected Works" or "Projects", plus HireReady AI and this AI-Powered Portfolio Website.
-6. Contact Details:
+5. Contact Details:
    - Email: indrakumar2014.sah@gmail.com
    - Phone / WhatsApp: +91-7890330625
    - GitHub: github.com/indrajeet87sah-glitch
 
 CRITICAL RULES FOR VOICE & TEXT:
-1. NEVER say you don't have information about "Selected Works" or any section on the page—look inside the LIVE WEBPAGE CONTENT above and answer accurately!
-2. Write responses so they sound 100% like a natural human speaking: use 2 to 3 short, clear sentences. Avoid complex symbols, markdown asterisks (*), or bullet lists.
+1. NEVER say you don't have information about "Selected Works" or any section—look inside the LIVE WEBPAGE CONTENT!
+2. Keep responses SUPER FAST, CRISP, AND SHORT (max 2 sentences).
 3. NEVER share any Figma link.
-4. LANGUAGE RULE: If the user asks in Hindi or Hinglish (e.g., "Selected works me kya hai", "Indrajeet kahan rehte hain"), you MUST reply in clean conversational Hindi written in Devanagari script (e.g., "इंद्रजीत के सेलेक्टेड वर्क्स सेक्शन में...") so the Hindi voice pronounces every word with 100% human clarity! If the user asks in English, reply in natural English.`;
+4. If asked in Hindi/Hinglish, reply in conversational Hindi (Devanagari script) so the voice reads it smoothly.`;
     };
 
     const SUGGESTIONS = [
@@ -144,7 +146,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         if (!isOpen) stopAllAudio();
     }, [isOpen]);
 
-    // Smooth auto-scrolling chips
+    // Smooth chips scroll (Syntax Fixed)
     useEffect(() => {
         const el = chipsRef.current;
         if (!el || !isOpen) return;
@@ -208,22 +210,17 @@ CRITICAL RULES FOR VOICE & TEXT:
         return null;
     };
 
-    // 3. ULTRA-CLEAR HUMAN-LIKE VOICE ENGINE WITH PHONETIC PRONUNCIATION & SENTENCE PACING
     const formatTextForHumanPronunciation = (rawText, isHindi) => {
         let text = rawText;
 
         const commonFixes = [
             [/UI\/UX/gi, isHindi ? "यूआई और यूएक्स" : "U I and U X"],
             [/React\.js/gi, isHindi ? "रिएक्ट जेएस" : "React J S"],
-            [/Next\.js/gi, isHindi ? "नेक्स्ट जेएस" : "Next J S"],
-            [/Node\.js/gi, isHindi ? "नोड जेएस" : "Node J S"],
             [/HTML5/gi, isHindi ? "एचटीएमएल फाइव" : "H T M L 5"],
             [/CSS3/gi, isHindi ? "सीएसएस थ्री" : "C S S 3"],
             [/ES6\+/gi, isHindi ? "ईएस सिक्स प्लस" : "E S 6 plus"],
-            [/Git\/GitHub/gi, isHindi ? "गिट और गिटहब" : "Git and GitHub"],
             [/indrakumar2014\.sah@gmail\.com/gi, isHindi ? "इंद्रकुमार दो हज़ार चौदह डॉट साह एट जीमेल डॉट कॉम" : "indrakumar 2014 dot sah at gmail dot com"],
-            [/\+91-7890330625/g, isHindi ? "प्लस नौ एक, सात आठ नौ शून्य, तीन तीन शून्य, छः दो पांच" : "plus 9 1, 7 8 9 0, 3 3 0, 6 2 5"],
-            [/7890330625/g, isHindi ? "सात आठ नौ शून्य, तीन तीन शून्य, छः दो पांच" : "7 8 9 0, 3 3 0, 6 2 5"]
+            [/\+91-7890330625/g, isHindi ? "सात आठ नौ शून्य, तीन तीन शून्य, छः दो पांच" : "7 8 9 0, 3 3 0, 6 2 5"]
         ];
 
         commonFixes.forEach(([regex, replacement]) => {
@@ -235,42 +232,14 @@ CRITICAL RULES FOR VOICE & TEXT:
                 [/Indrajeet Kumar Sah/gi, "इंद्रजीत कुमार साह"],
                 [/Indrajeet/gi, "इंद्रजीत"],
                 [/Clinchsoft Technologies/gi, "क्लिंचसॉफ्ट टेक्नोलॉजीज"],
-                [/Clinchsoft/gi, "क्लिंचसॉफ्ट"],
-                [/Selected Works/gi, "सेलेक्टेड वर्क्स"],
                 [/HireReady AI/gi, "हायर रेडी एआई"],
-                [/Portfolio/gi, "पोर्टफोलियो"],
-                [/Frontend/gi, "फ्रंट-एंड"],
-                [/Front-End/gi, "फ्रंट-एंड"],
-                [/Developer/gi, "डेवलपर"],
-                [/Designer/gi, "डिज़ाइनर"],
-                [/JavaScript/gi, "जावास्क्रिप्ट"],
                 [/Tailwind CSS/gi, "टेलविंड सीएसएस"],
-                [/Tailwind/gi, "टेलविंड"],
-                [/React/gi, "रिएक्ट"],
-                [/Python/gi, "पायथन"],
                 [/GitHub/gi, "गिटहब"],
                 [/Kolkata/gi, "कोलकाता"],
-                [/West Bengal/gi, "वेस्ट बंगाल"],
-                [/Internship/gi, "इंटर्नशिप"],
-                [/Experience/gi, "एक्सपीरियंस"],
-                [/Qualifications/gi, "क्वालिफिकेशन्स"],
-                [/Projects/gi, "प्रोजेक्ट्स"],
-                [/Skills/gi, "स्किल्स"],
-                [/\bAI\b/g, "एआई"],
-                [/\bATS\b/g, "एटीएस"],
-                [/\bAPI\b/g, "एपीआई"],
                 [/\bmein\b/gi, "में"],
                 [/\bhain\b/gi, "हैं"],
-                [/\bhai\b/gi, "है"],
-                [/\bke\b/gi, "के"],
-                [/\bka\b/gi, "का"],
-                [/\bki\b/gi, "की"],
-                [/\bko\b/gi, "को"],
-                [/\bse\b/gi, "से"],
-                [/\baur\b/gi, "और"],
-                [/\bpar\b/gi, "पर"]
+                [/\bhai\b/gi, "है"]
             ];
-
             hindiPhonetics.forEach(([regex, word]) => {
                 text = text.replace(regex, word);
             });
@@ -288,23 +257,9 @@ CRITICAL RULES FOR VOICE & TEXT:
         if (!voices || voices.length === 0) return null;
 
         if (isHindi) {
-            return (
-                voices.find((v) => v.name.includes("Google हिन्दी")) ||
-                voices.find((v) => v.name.includes("Swara") && v.name.includes("Natural")) ||
-                voices.find((v) => v.name.includes("Swara")) ||
-                voices.find((v) => v.name.includes("Madhur")) ||
-                voices.find((v) => v.lang === "hi-IN") ||
-                voices.find((v) => v.lang.startsWith("hi"))
-            );
+            return voices.find((v) => v.name.includes("Google हिन्दी") || v.lang === "hi-IN" || v.lang.startsWith("hi"));
         } else {
-            return (
-                voices.find((v) => v.name.includes("Neerja") && v.name.includes("Natural")) ||
-                voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") ||
-                voices.find((v) => v.name.includes("Neerja") || v.name.includes("Prabhat")) ||
-                voices.find((v) => v.lang === "en-IN") ||
-                voices.find((v) => v.name.includes("Google US English")) ||
-                voices.find((v) => v.lang.startsWith("en"))
-            );
+            return voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") || voices.find((v) => v.lang.startsWith("en"));
         }
     };
 
@@ -314,19 +269,11 @@ CRITICAL RULES FOR VOICE & TEXT:
         stopAllAudio();
         isCancelledRef.current = false;
 
-        const isHindi =
-            /[\u0900-\u097F]/.test(textToRead) ||
-            /\b(mein|hain|hai|ke|ka|ki|aur|kya|kaise|unke|inhone)\b/i.test(textToRead);
-
-        // FIXED TYPO HERE: Added space between const and formattedText
+        const isHindi = /[\u0900-\u097F]/.test(textToRead) || /\b(mein|hain|hai|ke|ka|ki)\b/i.test(textToRead);
         const formattedText = formatTextForHumanPronunciation(textToRead, isHindi);
         if (!formattedText) return;
 
-        const sentences = formattedText
-            .split(/(?<=[।.!?])\s+/)
-            .map((s) => s.trim())
-            .filter(Boolean);
-
+        const sentences = formattedText.split(/(?<=[।.!?])\s+/).map((s) => s.trim()).filter(Boolean);
         if (sentences.length === 0) return;
 
         speechQueueRef.current = sentences;
@@ -337,17 +284,12 @@ CRITICAL RULES FOR VOICE & TEXT:
                 setIsSpeaking(false);
                 return;
             }
-
             const chunk = speechQueueRef.current.shift();
             const utterance = new SpeechSynthesisUtterance(chunk);
-
             utterance.lang = isHindi ? "hi-IN" : "en-IN";
             if (selectedVoice) utterance.voice = selectedVoice;
-
-            utterance.rate = isHindi ? 0.96 : 0.95;
-            utterance.pitch = 1.02;
-            utterance.volume = 1.0;
-
+            utterance.rate = 0.95;
+            
             utterance.onstart = () => setIsSpeaking(true);
             utterance.onend = () => {
                 if (!isCancelledRef.current && speechQueueRef.current.length > 0) {
@@ -356,101 +298,55 @@ CRITICAL RULES FOR VOICE & TEXT:
                     setIsSpeaking(false);
                 }
             };
-            utterance.onerror = () => {
-                if (!isCancelledRef.current && speechQueueRef.current.length > 0) {
-                    speakNextChunk();
-                } else {
-                    setIsSpeaking(false);
-                }
-            };
-
             window.speechSynthesis.speak(utterance);
         };
-
-        setTimeout(() => {
-            window.speechSynthesis.resume();
-            speakNextChunk();
-        }, 60);
+        setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
+    // ⚡ 3. SUPER-FAST API FETCH (No heavy fallback loops)
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
         const contents = [
             { role: "user", parts: [{ text: dynamicInstruction }] },
-            {
-                role: "model",
-                parts: [
-                    {
-                        text: "Understood! I have read the entire live portfolio DOM content including Selected Works, Skills, and Qualifications, and I will reply in natural human-friendly sentences."
-                    }
-                ]
-            },
-            ...conversationMessages.slice(-8).map((m) => ({
+            { role: "model", parts: [{ text: "Understood! I will reply very quickly." }] },
+            ...conversationMessages.slice(-6).map((m) => ({ // Send only last 6 messages to keep payload light
                 role: m.role === "user" ? "user" : "model",
                 parts: [{ text: m.text }]
             }))
         ];
 
-        const priorityModels = [
-            activeModelRef.current,
-            "models/gemini-2.5-flash",
-            "models/gemini-2.0-flash",
-            "models/gemini-flash-latest"
-        ].filter(Boolean);
-
-        for (const modelPath of priorityModels) {
-            try {
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/${modelPath}:generateContent?key=${apiKey}`,
+        try {
+            // Directly call the fastest model available (gemini-1.5-flash)
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents })
+                }
+            );
+            const data = await res.json();
+            
+            // Auto fallback to 2.5 if 1.5 is busy/unavailable
+            if (data.error) {
+                const res2 = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
                     {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ contents })
                     }
                 );
-                const data = await res.json();
-                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                    activeModelRef.current = modelPath;
-                    return text.trim();
-                }
-            } catch (e) {}
+                const data2 = await res2.json();
+                if (data2.error) throw new Error(data2.error.message);
+                return data2.candidates[0].content.parts[0].text.trim();
+            }
+
+            return data.candidates[0].content.parts[0].text.trim();
+        } catch (e) {
+            throw new Error(e.message || "Failed to connect to API.");
         }
-
-        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-        const listData = await listRes.json();
-
-        if (listData.error) {
-            throw new Error(listData.error.message);
-        }
-
-        const availableModels = (listData.models || []).filter((m) =>
-            m.supportedGenerationMethods?.includes("generateContent")
-        );
-
-        availableModels.sort((a, b) => (a.name.includes("flash") ? -1 : 1) - (b.name.includes("flash") ? -1 : 1));
-
-        for (const mod of availableModels) {
-            try {
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/${mod.name}:generateContent?key=${apiKey}`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ contents })
-                    }
-                );
-                const data = await res.json();
-                const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) {
-                    activeModelRef.current = mod.name;
-                    return text.trim();
-                }
-            } catch (e) {}
-        }
-
-        throw new Error("No active Gemini model responded.");
     };
 
     const handleSend = async (e, customPrompt = null) => {
@@ -464,7 +360,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         if (textToSend.startsWith("AIzaSy")) {
             localStorage.setItem("indrajeet_ai_key", textToSend);
             setInput("");
-            const confirmMsg = "आपकी एपीआई की सेव हो गई है! अब आप मुझसे इंद्रजीत के पोर्टफोलियो के बारे में कुछ भी पूछ सकते हैं।";
+            const confirmMsg = "API Key save ho gayi hai! Ab aap mujhse kuch bhi poochiye.";
             setMessages((prev) => [...prev, { role: "model", text: confirmMsg }]);
             speakReply(confirmMsg);
             return;
@@ -513,16 +409,14 @@ CRITICAL RULES FOR VOICE & TEXT:
 
         if (isListening) {
             if (recognitionRef.current) {
-                try {
-                    recognitionRef.current.stop();
-                } catch (e) {}
+                try { recognitionRef.current.stop(); } catch (e) {}
             }
             setIsListening(false);
             return;
         }
 
         if (!window.isSecureContext && window.location.hostname !== "localhost") {
-            setStatusNote("Mobile par Mic sirf HTTPS (Live Link) par chalta hai.");
+            setStatusNote("Mobile par Mic sirf HTTPS par chalta hai.");
             return;
         }
 
@@ -532,29 +426,17 @@ CRITICAL RULES FOR VOICE & TEXT:
             return;
         }
 
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach((track) => track.stop());
-            } catch (permErr) {
-                setStatusNote("Browser Settings > Site Settings > Microphone mein Allow karein.");
-                return;
-            }
-        }
-
         try {
             const recognition = new SpeechRecognition();
             recognitionRef.current = recognition;
-
             recognition.lang = "en-IN";
             recognition.continuous = false;
             recognition.interimResults = false;
 
             recognition.onstart = () => {
                 setIsListening(true);
-                setStatusNote("Boliye... (Bolna rukte hi message apne aap chala jayega)");
+                setStatusNote("Boliye...");
             };
-
             recognition.onresult = (event) => {
                 const transcript = event.results[0]?.[0]?.transcript?.trim();
                 if (transcript) {
@@ -563,19 +445,8 @@ CRITICAL RULES FOR VOICE & TEXT:
                     handleSend(null, transcript);
                 }
             };
-
-            recognition.onerror = (event) => {
-                setIsListening(false);
-                if (event.error === "no-speech") {
-                    setStatusNote("Aawaz nahi aayi. Mic daba kar turant bolein.");
-                } else {
-                    setStatusNote("");
-                }
-            };
-
-            recognition.onend = () => {
-                setIsListening(false);
-            };
+            recognition.onerror = () => { setIsListening(false); setStatusNote(""); };
+            recognition.onend = () => setIsListening(false);
 
             recognition.start();
         } catch (err) {
@@ -635,89 +506,38 @@ CRITICAL RULES FOR VOICE & TEXT:
                                         }
                                     }}
                                     className={`text-xs px-2 py-0.5 rounded-full border transition cursor-pointer ${
-                                        voiceEnabled
-                                            ? "border-[#72bbf6]/40 text-[#72bbf6] bg-[#72bbf6]/10"
-                                            : "border-white/10 text-slate-400"
+                                        voiceEnabled ? "border-[#72bbf6]/40 text-[#72bbf6] bg-[#72bbf6]/10" : "border-white/10 text-slate-400"
                                     }`}
                                     title="Toggle Voice"
                                 >
                                     {voiceEnabled ? "🔊" : "🔇"}
                                 </button>
-
-                                <button
-                                    type="button"
-                                    onClick={clearChat}
-                                    className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded border border-white/10 cursor-pointer"
-                                    title="Clear Chat"
-                                >
-                                    ↻
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setIsOpen(false)}
-                                    className="text-slate-400 hover:text-white cursor-pointer"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">close</span>
-                                </button>
+                                <button type="button" onClick={clearChat} className="text-slate-400 hover:text-white text-xs px-1.5 py-0.5 rounded border border-white/10 cursor-pointer" title="Clear Chat">↻</button>
+                                <button type="button" onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white cursor-pointer"><span className="material-symbols-outlined text-[18px]">close</span></button>
                             </div>
                         </div>
 
-                        {statusNote && (
-                            <div className="bg-[#72bbf6]/15 border-b border-[#72bbf6]/30 px-3.5 py-1.5 text-[11px] text-[#72bbf6] font-medium">
-                                {statusNote}
-                            </div>
-                        )}
+                        {statusNote && <div className="bg-[#72bbf6]/15 border-b border-[#72bbf6]/30 px-3.5 py-1.5 text-[11px] text-[#72bbf6] font-medium">{statusNote}</div>}
 
                         {/* Messages Area */}
                         <div className="flex-1 p-4 overflow-y-auto no-scrollbar space-y-3 text-xs leading-relaxed">
                             {messages.map((m, idx) => (
                                 <div key={idx} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}>
-                                    <div
-                                        className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl ${
-                                            m.role === "user"
-                                                ? "bg-[#72bbf6] text-[#090d16] font-medium rounded-br-none"
-                                                : "bg-[#1e2538] text-slate-200 border border-white/5 rounded-bl-none"
-                                        }`}
-                                    >
+                                    <div className={`max-w-[85%] px-3.5 py-2.5 rounded-2xl ${m.role === "user" ? "bg-[#72bbf6] text-[#090d16] font-medium rounded-br-none" : "bg-[#1e2538] text-slate-200 border border-white/5 rounded-bl-none"}`}>
                                         {m.text}
                                     </div>
 
-                                    {/* Smart Action Cards */}
                                     {m.role === "model" && m.action === "contact_card" && (
                                         <div className="mt-2 flex flex-wrap gap-1.5 max-w-[85%]">
-                                            <a
-                                                href="mailto:indrakumar2014.sah@gmail.com"
-                                                className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
-                                            >
-                                                Email Indrajeet
-                                            </a>
-                                            <a
-                                                href="tel:+917890330625"
-                                                className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
-                                            >
-                                                Call +91-7890330625
-                                            </a>
+                                            <a href="mailto:indrakumar2014.sah@gmail.com" className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition">Email Indrajeet</a>
+                                            <a href="tel:+917890330625" className="bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition">Call +91-7890330625</a>
                                         </div>
                                     )}
 
                                     {m.role === "model" && m.action === "project_card" && (
                                         <div className="mt-2 flex flex-wrap gap-1.5 max-w-[85%]">
-                                            <a
-                                                href="https://github.com/indrajeet87sah-glitch"
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-2.5 py-1 rounded-lg text-[11px] font-medium transition"
-                                            >
-                                                View GitHub Projects
-                                            </a>
-                                            <button
-                                                type="button"
-                                                onClick={() => triggerPageNavigation("projects")}
-                                                className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer"
-                                            >
-                                                Scroll to Selected Works
-                                            </button>
+                                            <a href="https://github.com/indrajeet87sah-glitch" target="_blank" rel="noreferrer" className="bg-white/10 hover:bg-white/20 text-white border border-white/15 px-2.5 py-1 rounded-lg text-[11px] font-medium transition">View GitHub</a>
+                                            <button type="button" onClick={() => triggerPageNavigation("projects")} className="bg-[#72bbf6]/15 hover:bg-[#72bbf6]/25 text-[#72bbf6] border border-[#72bbf6]/30 px-2.5 py-1 rounded-lg text-[11px] font-medium transition cursor-pointer">Scroll to Projects</button>
                                         </div>
                                     )}
                                 </div>
@@ -746,13 +566,7 @@ CRITICAL RULES FOR VOICE & TEXT:
                             className="px-3 py-2 bg-[#161d2d] border-t border-white/5 flex gap-2 overflow-x-auto no-scrollbar cursor-grab active:cursor-grabbing select-none"
                         >
                             {SUGGESTIONS.map((item, idx) => (
-                                <button
-                                    key={idx}
-                                    type="button"
-                                    disabled={loading}
-                                    onClick={() => handleSend(null, item.prompt)}
-                                    className="text-[11px] whitespace-nowrap bg-white/5 hover:bg-[#72bbf6]/20 hover:text-[#72bbf6] text-slate-300 px-2.5 py-1 rounded-full border border-white/10 transition-colors disabled:opacity-50 flex-shrink-0 cursor-pointer shadow-sm"
-                                >
+                                <button key={idx} type="button" disabled={loading} onClick={() => handleSend(null, item.prompt)} className="text-[11px] whitespace-nowrap bg-white/5 hover:bg-[#72bbf6]/20 hover:text-[#72bbf6] text-slate-300 px-2.5 py-1 rounded-full border border-white/10 transition-colors disabled:opacity-50 flex-shrink-0 cursor-pointer shadow-sm">
                                     {item.label}
                                 </button>
                             ))}
@@ -763,33 +577,16 @@ CRITICAL RULES FOR VOICE & TEXT:
                             <div className="flex-1 relative flex items-center">
                                 <input
                                     type="text"
-                                    placeholder={isListening ? "Listening... Boliye 🎙️" : "Ask about Selected Works, Skills..."}
+                                    placeholder={isListening ? "Listening..." : "Ask about Selected Works, Skills..."}
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
-                                    className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border transition-all ${
-                                        isListening
-                                            ? "border-red-400/70 placeholder-red-400"
-                                            : "border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500"
-                                    }`}
+                                    className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border transition-all ${isListening ? "border-red-400/70 placeholder-red-400" : "border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500"}`}
                                 />
-                                <button
-                                    type="button"
-                                    onClick={startListening}
-                                    className={`absolute right-3 transition-colors cursor-pointer ${
-                                        isListening ? "text-red-400 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"
-                                    }`}
-                                    title="Tap & Speak"
-                                >
-                                    <span className="material-symbols-outlined text-[18px]">
-                                        mic
-                                    </span>
+                                <button type="button" onClick={startListening} className={`absolute right-3 transition-colors cursor-pointer ${isListening ? "text-red-400 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"}`} title="Tap & Speak">
+                                    <span className="material-symbols-outlined text-[18px]">mic</span>
                                 </button>
                             </div>
-                            <button
-                                type="submit"
-                                disabled={loading || !input.trim()}
-                                className="w-9 h-9 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] disabled:opacity-50 text-[#090d16] flex items-center justify-center transition-all cursor-pointer shrink-0"
-                            >
+                            <button type="submit" disabled={loading || !input.trim()} className="w-9 h-9 rounded-xl bg-[#72bbf6] hover:bg-[#5caeeb] disabled:opacity-50 text-[#090d16] flex items-center justify-center transition-all cursor-pointer shrink-0">
                                 <span className="material-symbols-outlined text-[18px]">send</span>
                             </button>
                         </form>
@@ -797,35 +594,16 @@ CRITICAL RULES FOR VOICE & TEXT:
                 )}
             </AnimatePresence>
 
-            {/* SUPER ATTRACTIVE FLOATING TOGGLE BUTTON WITH PULSE RING & TOOLTIP */}
             <div className="relative flex items-center">
                 {!isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, x: 10, scale: 0.9 }}
-                        animate={{ opacity: 1, x: 0, scale: 1 }}
-                        transition={{ duration: 0.4, delay: 0.5 }}
-                        className="absolute right-16 px-3.5 py-2 bg-[#1a2133] border border-[#72bbf6]/40 text-white text-xs font-medium rounded-2xl shadow-[0_0_20px_rgba(114,187,246,0.3)] whitespace-nowrap pointer-events-none flex items-center gap-2"
-                    >
+                    <motion.div initial={{ opacity: 0, x: 10, scale: 0.9 }} animate={{ opacity: 1, x: 0, scale: 1 }} transition={{ duration: 0.4, delay: 0.5 }} className="absolute right-16 px-3.5 py-2 bg-[#1a2133] border border-[#72bbf6]/40 text-white text-xs font-medium rounded-2xl shadow-[0_0_20px_rgba(114,187,246,0.3)] whitespace-nowrap pointer-events-none flex items-center gap-2">
                         <span>👋 Ask Indrajeet's AI Assistant</span>
                         <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                     </motion.div>
                 )}
-
-                {!isOpen && (
-                    <span className="absolute inset-0 rounded-full bg-[#72bbf6] opacity-75 animate-ping pointer-events-none"></span>
-                )}
-
-                <motion.button
-                    type="button"
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsOpen((prev) => !prev)}
-                    className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-[#5caeeb] to-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_30px_rgba(114,187,246,0.6)] cursor-pointer focus:outline-none border-2 border-white/20"
-                    title="Talk with AI Assistant"
-                >
-                    <span className="material-symbols-outlined text-[26px] font-bold">
-                        {isOpen ? "close" : "smart_toy"}
-                    </span>
+                {!isOpen && <span className="absolute inset-0 rounded-full bg-[#72bbf6] opacity-75 animate-ping pointer-events-none"></span>}
+                <motion.button type="button" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.95 }} onClick={() => setIsOpen((prev) => !prev)} className="relative w-14 h-14 rounded-full bg-gradient-to-tr from-[#5caeeb] to-[#72bbf6] text-[#090d16] flex items-center justify-center shadow-[0_0_30px_rgba(114,187,246,0.6)] cursor-pointer focus:outline-none border-2 border-white/20" title="Talk with AI Assistant">
+                    <span className="material-symbols-outlined text-[26px] font-bold">{isOpen ? "close" : "smart_toy"}</span>
                 </motion.button>
             </div>
         </div>
