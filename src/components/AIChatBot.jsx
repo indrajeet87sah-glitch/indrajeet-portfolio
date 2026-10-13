@@ -279,7 +279,6 @@ CRITICAL RULES FOR VOICE & TEXT:
         const formattedText = formatTextForHumanPronunciation(textToRead, isHindi);
         if (!formattedText) return;
 
-        // Split into natural sentences for human-like pauses
         const sentences = formattedText.split(/(?<=[।.!?])\s+/).map((s) => s.trim()).filter(Boolean);
         if (sentences.length === 0) return;
 
@@ -296,14 +295,13 @@ CRITICAL RULES FOR VOICE & TEXT:
             utterance.lang = isHindi ? "hi-IN" : "en-IN";
             if (selectedVoice) utterance.voice = selectedVoice;
             
-            // Finetuned for clear, professional human voice
             utterance.rate = 0.94;
             utterance.pitch = 1.02;
             
             utterance.onstart = () => setIsSpeaking(true);
             utterance.onend = () => {
                 if (!isCancelledRef.current && speechQueueRef.current.length > 0) {
-                    setTimeout(speakNextChunk, 180); // Natural 180ms breath pause between sentences
+                    setTimeout(speakNextChunk, 180);
                 } else {
                     setIsSpeaking(false);
                 }
@@ -313,7 +311,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ 3. ROBUST FALLBACK CHAIN: Never fails on "High Demand"
+    // ⚡ 3. STABLE SINGLE DIRECT API CALL
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
@@ -326,36 +324,30 @@ CRITICAL RULES FOR VOICE & TEXT:
             }))
         ];
 
-        // Highly stable model fallback chain. If one is busy, it instantly tries the next.
-        const stableModels = [
-            "gemini-1.5-flash", 
-            "gemini-1.5-flash-8b", 
-            "gemini-1.5-pro",
-            "gemini-flash-latest"
-        ];
-
-        for (const model of stableModels) {
-            try {
-                const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-                    {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ contents })
-                    }
-                );
-                const data = await res.json();
-                
-                if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    return data.candidates[0].content.parts[0].text.trim();
+        try {
+            // Sirf ek stable model ko hit kar rahe hain taaki rate limits aur loop errors block na karein
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents })
                 }
-                // If there's an error like "High Demand" (503), the loop silently ignores it and tries the next model immediately
-            } catch (e) {
-                // Ignore network errors and try next model
+            );
+            const data = await res.json();
+            
+            if (data.error) {
+                throw new Error(data.error.message);
             }
-        }
 
-        throw new Error("API Servers are temporarily busy. Please wait a few seconds and try again.");
+            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+                return data.candidates[0].content.parts[0].text.trim();
+            } else {
+                throw new Error("No text returned by AI.");
+            }
+        } catch (e) {
+            throw new Error(e.message || "Network request failed. Check API Key or try again.");
+        }
     };
 
     const handleSend = async (e, customPrompt = null) => {
@@ -406,7 +398,7 @@ CRITICAL RULES FOR VOICE & TEXT:
             }
         } catch (err) {
             setLoading(false);
-            const errMsg = `API Note: ${err.message}`;
+            const errMsg = `API Error: ${err.message}`;
             setMessages((prev) => [...prev, { role: "model", text: errMsg }]);
         }
     };
