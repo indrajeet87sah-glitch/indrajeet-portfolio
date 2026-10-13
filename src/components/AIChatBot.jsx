@@ -34,7 +34,7 @@ export default function AIChatBot() {
     const speechQueueRef = useRef([]);
     const isCancelledRef = useRef(false);
     
-    // ⚡ CACHE: Isse website baar-baar read nahi hogi, speed 10x fast ho jayegi!
+    // CACHE for lightning fast DOM reading
     const cachedPortfolioData = useRef(null);
 
     const getApiKey = () => {
@@ -68,19 +68,20 @@ export default function AIChatBot() {
                 finalContent = (clone.innerText || "").replace(/\s+/g, " ").trim();
             }
 
-            return finalContent.slice(0, 12000); // Trimmed for speed
+            return finalContent.slice(0, 12000); 
         } catch (err) {
             return "";
         }
     };
 
-    // 2. DYNAMIC SYSTEM INSTRUCTION (Cached)
+    // 2. ULTRA-SMART DYNAMIC SYSTEM INSTRUCTION
     const getDynamicSystemInstruction = () => {
         if (!cachedPortfolioData.current) {
             cachedPortfolioData.current = readEntireWebpage();
         }
 
-        return `You are "Indrajeet AI Agent", the official, smart, and friendly AI representative on Indrajeet Kumar Sah's portfolio website.
+        return `You are "Indrajeet AI Agent", an elite, highly intelligent, and professional executive assistant for Indrajeet Kumar Sah's portfolio website. 
+You possess full context of his career, skills, and projects. Answer with extreme confidence, precision, and a warm professional tone.
 
 LIVE WEBPAGE CONTENT:
 """
@@ -93,17 +94,17 @@ COMPLETE RESUME & PROFILE KNOWLEDGE:
 3. Location: Kolkata / West Bengal, India.
 4. Qualifications & Experience:
    - Completed Web Development Internship at Clinchsoft Technologies.
-   - Strong expertise in JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, React.js (Learning), UI/UX Design, Python, System Design, and Git/GitHub.
+   - Strong expertise in JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, React.js (Learning phase), UI/UX Design, Python, System Design, and Git/GitHub.
 5. Contact Details:
    - Email: indrakumar2014.sah@gmail.com
    - Phone / WhatsApp: +91-7890330625
    - GitHub: github.com/indrajeet87sah-glitch
 
-CRITICAL RULES FOR VOICE & TEXT:
-1. NEVER say you don't have information about "Selected Works" or any section—look inside the LIVE WEBPAGE CONTENT!
-2. Keep responses SUPER FAST, CRISP, AND SHORT (max 2 sentences).
+CRITICAL RULES FOR SMART RESPONSES:
+1. NEVER say you don't have information about "Selected Works" or any portfolio section—extract the exact project names and details from the LIVE WEBPAGE CONTENT above!
+2. Be brief but highly impactful. Use 2 to 3 concise, persuasive sentences. Be a hype-man for Indrajeet's skills without sounding unnatural.
 3. NEVER share any Figma link.
-4. If asked in Hindi/Hinglish, reply in conversational Hindi (Devanagari script) so the voice reads it smoothly.`;
+4. If asked in Hindi/Hinglish, reply in pure, conversational Hindi (Devanagari script) so the voice engine sounds like a real professional Indian assistant.`;
     };
 
     const SUGGESTIONS = [
@@ -146,7 +147,6 @@ CRITICAL RULES FOR VOICE & TEXT:
         if (!isOpen) stopAllAudio();
     }, [isOpen]);
 
-    // Smooth chips scroll (Syntax Fixed)
     useEffect(() => {
         const el = chipsRef.current;
         if (!el || !isOpen) return;
@@ -303,50 +303,83 @@ CRITICAL RULES FOR VOICE & TEXT:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ 3. SUPER-FAST API FETCH (No heavy fallback loops)
+    // ⚡ 3. PERMANENT FUTURE-PROOF API ENGINE
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
         const contents = [
             { role: "user", parts: [{ text: dynamicInstruction }] },
-            { role: "model", parts: [{ text: "Understood! I will reply very quickly." }] },
-            ...conversationMessages.slice(-6).map((m) => ({ // Send only last 6 messages to keep payload light
+            { role: "model", parts: [{ text: "Understood! I will reply smartly and perfectly represent Indrajeet." }] },
+            ...conversationMessages.slice(-6).map((m) => ({
                 role: m.role === "user" ? "user" : "model",
                 parts: [{ text: m.text }]
             }))
         ];
 
-        try {
-            // Directly call the fastest model available (gemini-1.5-flash)
-            const res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ contents })
-                }
-            );
-            const data = await res.json();
-            
-            // Auto fallback to 2.5 if 1.5 is busy/unavailable
-            if (data.error) {
-                const res2 = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+        // PRIORITIZE THE EXACT MODEL REQUIRED BY GOOGLE, THEN FALLBACK TO LATEST
+        const priorityModels = [
+            "gemini-3.8-flash",
+            "gemini-flash-latest"
+        ];
+
+        let lastError = null;
+
+        // Step 1: Try the exact priority models directly for maximum speed
+        for (const model of priorityModels) {
+            try {
+                const res = await fetch(
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
                     {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ contents })
                     }
                 );
-                const data2 = await res2.json();
-                if (data2.error) throw new Error(data2.error.message);
-                return data2.candidates[0].content.parts[0].text.trim();
+                const data = await res.json();
+                
+                if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    return data.candidates[0].content.parts[0].text.trim();
+                } else if (data.error) {
+                    lastError = data.error.message;
+                }
+            } catch (e) {
+                lastError = e.message;
             }
-
-            return data.candidates[0].content.parts[0].text.trim();
-        } catch (e) {
-            throw new Error(e.message || "Failed to connect to API.");
         }
+
+        // Step 2: Auto-Healing System. If Google deletes 3.8 in the future, it automatically finds the newest one!
+        try {
+            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            const listData = await listRes.json();
+            
+            if (!listData.error && listData.models) {
+                // Find all flash models that support content generation
+                const availableModels = listData.models.filter(m => 
+                    m.supportedGenerationMethods?.includes("generateContent") && 
+                    m.name.includes("flash")
+                );
+                
+                // Sort descending to always pick the highest version (e.g., 4.0 over 3.8)
+                availableModels.sort((a, b) => b.name.localeCompare(a.name));
+                
+                if (availableModels.length > 0) {
+                     const res = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/${availableModels[0].name}:generateContent?key=${apiKey}`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ contents })
+                        }
+                    );
+                    const data = await res.json();
+                    if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        return data.candidates[0].content.parts[0].text.trim();
+                    }
+                }
+            }
+        } catch(e) {}
+
+        throw new Error(lastError || "API Issue: Ensure your API key is valid and has model access.");
     };
 
     const handleSend = async (e, customPrompt = null) => {
@@ -360,7 +393,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         if (textToSend.startsWith("AIzaSy")) {
             localStorage.setItem("indrajeet_ai_key", textToSend);
             setInput("");
-            const confirmMsg = "API Key save ho gayi hai! Ab aap mujhse kuch bhi poochiye.";
+            const confirmMsg = "API Key successfully updated! I am ready to assist.";
             setMessages((prev) => [...prev, { role: "model", text: confirmMsg }]);
             speakReply(confirmMsg);
             return;
@@ -390,7 +423,6 @@ CRITICAL RULES FOR VOICE & TEXT:
             setMessages((prev) => [...prev, { role: "model", text: aiReply, action: actionType }]);
             setLoading(false);
 
-            // Safe call so voice never triggers an API error message
             try {
                 speakReply(aiReply);
             } catch (voiceErr) {
@@ -398,7 +430,7 @@ CRITICAL RULES FOR VOICE & TEXT:
             }
         } catch (err) {
             setLoading(false);
-            const errMsg = `API Issue: ${err.message}.`;
+            const errMsg = `API Note: ${err.message}.`;
             setMessages((prev) => [...prev, { role: "model", text: errMsg }]);
         }
     };
@@ -435,7 +467,7 @@ CRITICAL RULES FOR VOICE & TEXT:
 
             recognition.onstart = () => {
                 setIsListening(true);
-                setStatusNote("Boliye...");
+                setStatusNote("Listening... 🎙️");
             };
             recognition.onresult = (event) => {
                 const transcript = event.results[0]?.[0]?.transcript?.trim();
@@ -479,14 +511,14 @@ CRITICAL RULES FOR VOICE & TEXT:
                                     <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-400 border-2 border-[#1a2133] rounded-full"></span>
                                 </div>
                                 <div>
-                                    <h4 className="text-white text-sm font-semibold leading-tight">Indrajeet AI Agent</h4>
+                                    <h4 className="text-white text-sm font-semibold leading-tight">Indrajeet's AI Assistant</h4>
                                     <div className="flex items-center gap-1.5">
                                         {isSpeaking ? (
                                             <span className="text-[#72bbf6] text-[11px] font-medium flex items-center gap-1 animate-pulse">
-                                                Speaking naturally...
+                                                Speaking with you...
                                             </span>
                                         ) : (
-                                            <p className="text-slate-400 text-[11px]">Personal Digital Assistant • Live</p>
+                                            <p className="text-slate-400 text-[11px]">Interactive Portfolio Guide • Online</p>
                                         )}
                                     </div>
                                 </div>
