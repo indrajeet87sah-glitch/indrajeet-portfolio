@@ -100,7 +100,7 @@ COMPLETE RESUME & PROFILE KNOWLEDGE:
 
 CRITICAL RULES FOR VOICE & TEXT:
 1. NEVER say you don't have information about "Selected Works" or any portfolio section—extract the exact project names and details from the LIVE WEBPAGE CONTENT above!
-2. Write responses so they sound 100% like a natural human speaking: use 1 to 2 short, highly conversational sentences. Avoid complex symbols or bullet lists.
+2. Write responses so they sound 100% like a natural human speaking: use 1 to 2 short, highly conversational sentences. Avoid complex symbols or bullet lists. Be smart and confident.
 3. NEVER share any Figma link.
 4. If asked in Hindi/Hinglish, reply in pure, conversational Hindi (Devanagari script) so the voice engine sounds like a real professional Indian assistant.`;
     };
@@ -311,7 +311,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ 3. STABLE SINGLE DIRECT API CALL
+    // ⚡ 3. PERMANENT FIX: SMART AUTO-DISCOVERY API ENGINE
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
@@ -325,26 +325,50 @@ CRITICAL RULES FOR VOICE & TEXT:
         ];
 
         try {
-            // Sirf ek stable model ko hit kar rahe hain taaki rate limits aur loop errors block na karein
-            const res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            // Priority 1: Try the most standard model first
+            const primaryRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ contents })
                 }
             );
-            const data = await res.json();
+            const primaryData = await primaryRes.json();
             
-            if (data.error) {
-                throw new Error(data.error.message);
+            if (!primaryData.error && primaryData.candidates?.[0]?.content?.parts?.[0]?.text) {
+                return primaryData.candidates[0].content.parts[0].text.trim();
             }
 
-            if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-                return data.candidates[0].content.parts[0].text.trim();
-            } else {
-                throw new Error("No text returned by AI.");
+            // Priority 2: If primary fails, auto-discover all available valid models and use the first one working
+            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            const listData = await listRes.json();
+
+            if (!listData.error && listData.models) {
+                const validModels = listData.models.filter(m => 
+                    m.supportedGenerationMethods?.includes("generateContent") && 
+                    m.name.includes("flash")
+                );
+
+                if (validModels.length > 0) {
+                    // Try the exact string provided by the API (which includes the 'models/' prefix)
+                    const fallbackRes = await fetch(
+                        `https://generativelanguage.googleapis.com/v1beta/${validModels[0].name}:generateContent?key=${apiKey}`,
+                        {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ contents })
+                        }
+                    );
+                    const fallbackData = await fallbackRes.json();
+                    
+                    if (!fallbackData.error && fallbackData.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        return fallbackData.candidates[0].content.parts[0].text.trim();
+                    }
+                }
             }
+
+            throw new Error(primaryData.error?.message || "Model not found. Please check API settings.");
         } catch (e) {
             throw new Error(e.message || "Network request failed. Check API Key or try again.");
         }
