@@ -34,7 +34,6 @@ export default function AIChatBot() {
     const speechQueueRef = useRef([]);
     const isCancelledRef = useRef(false);
     
-    // CACHE for lightning fast DOM reading
     const cachedPortfolioData = useRef(null);
 
     const getApiKey = () => {
@@ -81,7 +80,6 @@ export default function AIChatBot() {
         }
 
         return `You are "Indrajeet AI Agent", an elite, highly intelligent, and professional executive assistant for Indrajeet Kumar Sah's portfolio website. 
-You possess full context of his career, skills, and projects. Answer with extreme confidence, precision, and a warm professional tone.
 
 LIVE WEBPAGE CONTENT:
 """
@@ -94,15 +92,15 @@ COMPLETE RESUME & PROFILE KNOWLEDGE:
 3. Location: Kolkata / West Bengal, India.
 4. Qualifications & Experience:
    - Completed Web Development Internship at Clinchsoft Technologies.
-   - Strong expertise in JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, React.js (Learning phase), UI/UX Design, Python, System Design, and Git/GitHub.
+   - Strong expertise in JavaScript (ES6+), Tailwind CSS, HTML5, CSS3, React.js, UI/UX Design, Python, System Design, and Git/GitHub.
 5. Contact Details:
    - Email: indrakumar2014.sah@gmail.com
    - Phone / WhatsApp: +91-7890330625
    - GitHub: github.com/indrajeet87sah-glitch
 
-CRITICAL RULES FOR SMART RESPONSES:
+CRITICAL RULES FOR VOICE & TEXT:
 1. NEVER say you don't have information about "Selected Works" or any portfolio section—extract the exact project names and details from the LIVE WEBPAGE CONTENT above!
-2. Be brief but highly impactful. Use 1 to 2 concise, persuasive sentences max. Be a hype-man for Indrajeet's skills without sounding unnatural.
+2. Write responses so they sound 100% like a natural human speaking: use 1 to 2 short, highly conversational sentences. Avoid complex symbols or bullet lists.
 3. NEVER share any Figma link.
 4. If asked in Hindi/Hinglish, reply in pure, conversational Hindi (Devanagari script) so the voice engine sounds like a real professional Indian assistant.`;
     };
@@ -257,9 +255,17 @@ CRITICAL RULES FOR SMART RESPONSES:
         if (!voices || voices.length === 0) return null;
 
         if (isHindi) {
-            return voices.find((v) => v.name.includes("Google हिन्दी") || v.lang === "hi-IN" || v.lang.startsWith("hi"));
+            return (
+                voices.find((v) => v.name.includes("Google हिन्दी")) ||
+                voices.find((v) => v.name.includes("Swara")) ||
+                voices.find((v) => v.lang === "hi-IN" || v.lang.startsWith("hi"))
+            );
         } else {
-            return voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") || voices.find((v) => v.lang.startsWith("en"));
+            return (
+                voices.find((v) => v.name.includes("Google UK English Female") || v.name.includes("Neerja")) ||
+                voices.find((v) => v.name.includes("Google") && v.lang === "en-IN") ||
+                voices.find((v) => v.lang.startsWith("en"))
+            );
         }
     };
 
@@ -273,6 +279,7 @@ CRITICAL RULES FOR SMART RESPONSES:
         const formattedText = formatTextForHumanPronunciation(textToRead, isHindi);
         if (!formattedText) return;
 
+        // Split into natural sentences for human-like pauses
         const sentences = formattedText.split(/(?<=[।.!?])\s+/).map((s) => s.trim()).filter(Boolean);
         if (sentences.length === 0) return;
 
@@ -288,12 +295,15 @@ CRITICAL RULES FOR SMART RESPONSES:
             const utterance = new SpeechSynthesisUtterance(chunk);
             utterance.lang = isHindi ? "hi-IN" : "en-IN";
             if (selectedVoice) utterance.voice = selectedVoice;
-            utterance.rate = 0.95;
+            
+            // Finetuned for clear, professional human voice
+            utterance.rate = 0.94;
+            utterance.pitch = 1.02;
             
             utterance.onstart = () => setIsSpeaking(true);
             utterance.onend = () => {
                 if (!isCancelledRef.current && speechQueueRef.current.length > 0) {
-                    setTimeout(speakNextChunk, 160);
+                    setTimeout(speakNextChunk, 180); // Natural 180ms breath pause between sentences
                 } else {
                     setIsSpeaking(false);
                 }
@@ -303,25 +313,28 @@ CRITICAL RULES FOR SMART RESPONSES:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ 3. ULTRA-FAST DIRECT API CALL (No heavy fallback loops)
+    // ⚡ 3. ROBUST FALLBACK CHAIN: Never fails on "High Demand"
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
         const contents = [
             { role: "user", parts: [{ text: dynamicInstruction }] },
             { role: "model", parts: [{ text: "Understood! I will reply smartly and super fast." }] },
-            // Only send the last 4 messages instead of 8 to reduce payload and speed up response
             ...conversationMessages.slice(-4).map((m) => ({
                 role: m.role === "user" ? "user" : "model",
                 parts: [{ text: m.text }]
             }))
         ];
 
-        // Hit the fastest available model directly
-        const priorityModels = ["gemini-3.8-flash", "gemini-flash-latest"];
-        let lastError = null;
+        // Highly stable model fallback chain. If one is busy, it instantly tries the next.
+        const stableModels = [
+            "gemini-1.5-flash", 
+            "gemini-1.5-flash-8b", 
+            "gemini-1.5-pro",
+            "gemini-flash-latest"
+        ];
 
-        for (const model of priorityModels) {
+        for (const model of stableModels) {
             try {
                 const res = await fetch(
                     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -335,15 +348,14 @@ CRITICAL RULES FOR SMART RESPONSES:
                 
                 if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
                     return data.candidates[0].content.parts[0].text.trim();
-                } else if (data.error) {
-                    lastError = data.error.message;
                 }
+                // If there's an error like "High Demand" (503), the loop silently ignores it and tries the next model immediately
             } catch (e) {
-                lastError = e.message;
+                // Ignore network errors and try next model
             }
         }
 
-        throw new Error(lastError || "API Server is busy. Please try again.");
+        throw new Error("API Servers are temporarily busy. Please wait a few seconds and try again.");
     };
 
     const handleSend = async (e, customPrompt = null) => {
@@ -394,7 +406,7 @@ CRITICAL RULES FOR SMART RESPONSES:
             }
         } catch (err) {
             setLoading(false);
-            const errMsg = `API Note: ${err.message}.`;
+            const errMsg = `API Note: ${err.message}`;
             setMessages((prev) => [...prev, { role: "model", text: errMsg }]);
         }
     };
