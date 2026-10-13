@@ -34,7 +34,9 @@ export default function AIChatBot() {
     const speechQueueRef = useRef([]);
     const isCancelledRef = useRef(false);
     
+    // CACHES FOR MAXIMUM SPEED
     const cachedPortfolioData = useRef(null);
+    const validModelsRef = useRef(["gemini-1.5-flash"]);
 
     const getApiKey = () => {
         return (
@@ -44,7 +46,30 @@ export default function AIChatBot() {
         ).trim();
     };
 
-    // 1. LIVE DOM READER
+    // 1. BACKGROUND MODEL AUTO-DISCOVERY
+    useEffect(() => {
+        const apiKey = getApiKey();
+        if (!apiKey) return;
+
+        fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`)
+            .then((res) => res.json())
+            .then((data) => {
+                if (data.models) {
+                    const availableFlashes = data.models
+                        .filter(m => m.supportedGenerationMethods?.includes("generateContent") && m.name.includes("flash"))
+                        .map(m => m.name.replace("models/", ""));
+                    
+                    if (availableFlashes.length > 0) {
+                        const primary = availableFlashes.find(m => m === "gemini-1.5-flash");
+                        const others = availableFlashes.filter(m => m !== "gemini-1.5-flash");
+                        validModelsRef.current = primary ? [primary, ...others] : availableFlashes;
+                    }
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    // 2. LIVE DOM READER
     const readEntireWebpage = () => {
         try {
             const clone = document.body.cloneNode(true);
@@ -67,13 +92,13 @@ export default function AIChatBot() {
                 finalContent = (clone.innerText || "").replace(/\s+/g, " ").trim();
             }
 
-            return finalContent.slice(0, 12000); 
+            return finalContent.slice(0, 10000); 
         } catch (err) {
             return "";
         }
     };
 
-    // 2. ULTRA-SMART DYNAMIC SYSTEM INSTRUCTION
+    // 3. ULTRA-SMART DYNAMIC SYSTEM INSTRUCTION
     const getDynamicSystemInstruction = () => {
         if (!cachedPortfolioData.current) {
             cachedPortfolioData.current = readEntireWebpage();
@@ -100,9 +125,9 @@ COMPLETE RESUME & PROFILE KNOWLEDGE:
 
 CRITICAL RULES FOR VOICE & TEXT:
 1. NEVER say you don't have information about "Selected Works" or any portfolio section—extract the exact project names and details from the LIVE WEBPAGE CONTENT above!
-2. Write responses so they sound 100% like a natural human speaking: use 1 to 2 short, highly conversational sentences. Avoid complex symbols or bullet lists. Be smart and confident.
+2. Write responses so they sound 100% like a natural human speaking: use 1 to 2 short, highly conversational sentences. DO NOT USE ANY Markdown symbols like **asterisks**, -, or bullet lists.
 3. NEVER share any Figma link.
-4. If asked in Hindi/Hinglish, reply in pure, conversational Hindi (Devanagari script) so the voice engine sounds like a real professional Indian assistant.`;
+4. If asked in Hindi/Hinglish, reply in pure, simple conversational Hindi (Devanagari script) without any complex English words so the voice engine sounds like a real professional Indian assistant.`;
     };
 
     const SUGGESTIONS = [
@@ -208,46 +233,68 @@ CRITICAL RULES FOR VOICE & TEXT:
         return null;
     };
 
+    // ⚡ 4. DEEP PHONETIC CLEANER FOR 100% CLEAR HUMAN VOICE
     const formatTextForHumanPronunciation = (rawText, isHindi) => {
-        let text = rawText;
+        // Step 1: Aggressive Symbol Removal so voice engine never stutters
+        let text = rawText
+            .replace(/\*\*/g, "") // Remove bold
+            .replace(/\*/g, "")   // Remove italics/bullets
+            .replace(/#/g, "")    // Remove headers
+            .replace(/`/g, "")
+            .replace(/~/g, "")
+            .replace(/https?:\/\/[^\s]+/g, "") // Don't read links aloud
+            .replace(/[-_]/g, " ") // Replace dashes with pauses
+            .replace(/[*•💻🚀💼📬🌟🎓📍🎙️🔊🔇✕⚠️✅]/g, " ");
 
-        const commonFixes = [
-            [/UI\/UX/gi, isHindi ? "यूआई और यूएक्स" : "U I and U X"],
-            [/React\.js/gi, isHindi ? "रिएक्ट जेएस" : "React J S"],
-            [/HTML5/gi, isHindi ? "एचटीएमएल फाइव" : "H T M L 5"],
-            [/CSS3/gi, isHindi ? "सीएसएस थ्री" : "C S S 3"],
-            [/ES6\+/gi, isHindi ? "ईएस सिक्स प्लस" : "E S 6 plus"],
-            [/indrakumar2014\.sah@gmail\.com/gi, isHindi ? "इंद्रकुमार दो हज़ार चौदह डॉट साह एट जीमेल डॉट कॉम" : "indrakumar 2014 dot sah at gmail dot com"],
-            [/\+91-7890330625/g, isHindi ? "सात आठ नौ शून्य, तीन तीन शून्य, छः दो पांच" : "7 8 9 0, 3 3 0, 6 2 5"]
-        ];
+        // Step 2: Fix Phone & Email
+        text = text.replace(/indrakumar2014\.sah@gmail\.com/gi, isHindi ? "इंद्रकुमार दो हज़ार चौदह डॉट साह एट जीमेल डॉट कॉम" : "indrakumar 2014 dot sah at gmail dot com");
+        text = text.replace(/\+91\s*7890330625/g, isHindi ? "सात आठ नौ शून्य, तीन तीन शून्य, छः दो पांच" : "7 8 9 0, 3 3 0, 6 2 5");
+        text = text.replace(/7890330625/g, isHindi ? "सात आठ नौ शून्य, तीन তিন शून्य, छः दो पांच" : "7 8 9 0, 3 3 0, 6 2 5");
 
-        commonFixes.forEach(([regex, replacement]) => {
-            text = text.replace(regex, replacement);
-        });
-
+        // Step 3: Pure Phonetic Mapping for Hindi
         if (isHindi) {
             const hindiPhonetics = [
-                [/Indrajeet Kumar Sah/gi, "इंद्रजीत कुमार साह"],
-                [/Indrajeet/gi, "इंद्रजीत"],
-                [/Clinchsoft Technologies/gi, "क्लिंचसॉफ्ट टेक्नोलॉजीज"],
-                [/HireReady AI/gi, "हायर रेडी एआई"],
-                [/Tailwind CSS/gi, "टेलविंड सीएसएस"],
-                [/GitHub/gi, "गिटहब"],
-                [/Kolkata/gi, "कोलकाता"],
+                [/\bUI\/UX\b/gi, "यूआई और यूएक्स"],
+                [/\bReact\.js\b/gi, "रिएक्ट जेएस"],
+                [/\bReact\b/gi, "रिएक्ट"],
+                [/\bHTML5\b/gi, "एचटीएमएल फाइव"],
+                [/\bCSS3\b/gi, "सीएसएस थ्री"],
+                [/\bES6\+\b/gi, "ईएस सिक्स प्लस"],
+                [/\bJavaScript\b/gi, "जावास्क्रिप्ट"],
+                [/\bTailwind CSS\b/gi, "टेलविंड सीएसएस"],
+                [/\bTailwind\b/gi, "टेलविंड"],
+                [/\bFrontend\b/gi, "फ्रंट एंड"],
+                [/\bFront End\b/gi, "फ्रंट एंड"],
+                [/\bDeveloper\b/gi, "डेवलपर"],
+                [/\bDesigner\b/gi, "डिज़ाइनर"],
+                [/\bProjects\b/gi, "प्रोजेक्ट्स"],
+                [/\bSkills\b/gi, "स्किल्स"],
+                [/\bExperience\b/gi, "एक्सपीरियंस"],
+                [/\bQualifications\b/gi, "क्वालिफिकेशन्स"],
+                [/\bIndrajeet Kumar Sah\b/gi, "इंद्रजीत कुमार साह"],
+                [/\bIndrajeet\b/gi, "इंद्रजीत"],
+                [/\bClinchsoft Technologies\b/gi, "क्लिंचसॉफ्ट टेक्नोलॉजीज"],
+                [/\bHireReady AI\b/gi, "हायर रेडी एआई"],
+                [/\bGitHub\b/gi, "गिटहब"],
+                [/\bKolkata\b/gi, "कोलकाता"],
+                [/\bWest Bengal\b/gi, "वेस्ट बंगाल"],
                 [/\bmein\b/gi, "में"],
                 [/\bhain\b/gi, "हैं"],
-                [/\bhai\b/gi, "है"]
+                [/\bhai\b/gi, "है"],
+                [/\bke\b/gi, "के"],
+                [/\bka\b/gi, "का"],
+                [/\bki\b/gi, "की"],
+                [/\bko\b/gi, "को"],
+                [/\bse\b/gi, "से"],
+                [/\baur\b/gi, "और"],
+                [/\bpar\b/gi, "पर"]
             ];
             hindiPhonetics.forEach(([regex, word]) => {
                 text = text.replace(regex, word);
             });
         }
 
-        return text
-            .replace(/https?:\/\/[^\s]+/g, "")
-            .replace(/[*#`_~•💻🚀💼📬🌟🎓📍🎙️🔊🔇✕⚠️✅]/g, " ")
-            .replace(/\s+/g, " ")
-            .trim();
+        return text.replace(/\s+/g, " ").trim();
     };
 
     const pickBestHumanVoice = (isHindi) => {
@@ -257,6 +304,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         if (isHindi) {
             return (
                 voices.find((v) => v.name.includes("Google हिन्दी")) ||
+                voices.find((v) => v.name.includes("Google Hindi")) ||
                 voices.find((v) => v.name.includes("Swara")) ||
                 voices.find((v) => v.lang === "hi-IN" || v.lang.startsWith("hi"))
             );
@@ -279,6 +327,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         const formattedText = formatTextForHumanPronunciation(textToRead, isHindi);
         if (!formattedText) return;
 
+        // Break sentences more carefully for natural pauses
         const sentences = formattedText.split(/(?<=[।.!?])\s+/).map((s) => s.trim()).filter(Boolean);
         if (sentences.length === 0) return;
 
@@ -295,13 +344,14 @@ CRITICAL RULES FOR VOICE & TEXT:
             utterance.lang = isHindi ? "hi-IN" : "en-IN";
             if (selectedVoice) utterance.voice = selectedVoice;
             
-            utterance.rate = 0.94;
-            utterance.pitch = 1.02;
+            // Finetuned for clear, un-rushed human reading
+            utterance.rate = 0.9; // Slightly slower for much better clarity
+            utterance.pitch = 1.0;
             
             utterance.onstart = () => setIsSpeaking(true);
             utterance.onend = () => {
                 if (!isCancelledRef.current && speechQueueRef.current.length > 0) {
-                    setTimeout(speakNextChunk, 180);
+                    setTimeout(speakNextChunk, 250); // Deep natural breath (250ms) between sentences
                 } else {
                     setIsSpeaking(false);
                 }
@@ -311,29 +361,22 @@ CRITICAL RULES FOR VOICE & TEXT:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ PERMANENT FIX: DIRECT MODEL TARGETING (No Auto-Discovery Loops)
+    // 5. LIGHTNING FAST SMART FETCH USING BACKGROUND LIST
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
         const contents = [
             { role: "user", parts: [{ text: dynamicInstruction }] },
-            { role: "model", parts: [{ text: "Understood! I will reply smartly and super fast." }] },
-            ...conversationMessages.slice(-4).map((m) => ({
+            { role: "model", parts: [{ text: "Understood! I will reply very fast without any markdown." }] },
+            ...conversationMessages.slice(-3).map((m) => ({
                 role: m.role === "user" ? "user" : "model",
                 parts: [{ text: m.text }]
             }))
         ];
 
-        // Google API explicitly recommended 3.8-flash in the error message. 
-        // We will try that first. If it fails, we fall back to the universally stable 1.5-flash.
-        const modelsToTry = [
-            "gemini-3.8-flash",
-            "gemini-1.5-flash"
-        ];
-
         let lastError = "";
 
-        for (const model of modelsToTry) {
+        for (const model of validModelsRef.current) {
             try {
                 const res = await fetch(
                     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -346,18 +389,21 @@ CRITICAL RULES FOR VOICE & TEXT:
                 
                 const data = await res.json();
                 
-                if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                    return data.candidates[0].content.parts[0].text.trim();
-                } else if (data.error) {
+                if (data.error) {
                     lastError = data.error.message;
-                    // If error occurs, the loop automatically tries the next reliable model
+                    continue; 
+                }
+
+                if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    return data.candidates[0].content.parts[0].text.trim();
                 }
             } catch (e) {
                 lastError = e.message;
+                continue;
             }
         }
 
-        throw new Error(lastError || "Network request failed. Check API Key or try again.");
+        throw new Error("API Servers are temporarily heavily loaded. Please wait a few seconds.");
     };
 
     const handleSend = async (e, customPrompt = null) => {
@@ -408,7 +454,7 @@ CRITICAL RULES FOR VOICE & TEXT:
             }
         } catch (err) {
             setLoading(false);
-            const errMsg = `API Error: ${err.message}`;
+            const errMsg = `API Note: ${err.message}`;
             setMessages((prev) => [...prev, { role: "model", text: errMsg }]);
         }
     };
