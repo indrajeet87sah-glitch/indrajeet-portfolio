@@ -311,7 +311,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ 3. PERMANENT FIX: SMART AUTO-DISCOVERY API ENGINE
+    // ⚡ PERMANENT FIX: ROCK-SOLID API FETCH
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
@@ -325,50 +325,27 @@ CRITICAL RULES FOR VOICE & TEXT:
         ];
 
         try {
-            // Priority 1: Try the most standard model first
-            const primaryRes = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`,
+            // Hamesha stable rehne wala standard model
+            const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ contents })
                 }
             );
-            const primaryData = await primaryRes.json();
             
-            if (!primaryData.error && primaryData.candidates?.[0]?.content?.parts?.[0]?.text) {
-                return primaryData.candidates[0].content.parts[0].text.trim();
+            const data = await res.json();
+            
+            if (data.error) {
+                throw new Error(data.error.message);
             }
 
-            // Priority 2: If primary fails, auto-discover all available valid models and use the first one working
-            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-            const listData = await listRes.json();
-
-            if (!listData.error && listData.models) {
-                const validModels = listData.models.filter(m => 
-                    m.supportedGenerationMethods?.includes("generateContent") && 
-                    m.name.includes("flash")
-                );
-
-                if (validModels.length > 0) {
-                    // Try the exact string provided by the API (which includes the 'models/' prefix)
-                    const fallbackRes = await fetch(
-                        `https://generativelanguage.googleapis.com/v1beta/${validModels[0].name}:generateContent?key=${apiKey}`,
-                        {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ contents })
-                        }
-                    );
-                    const fallbackData = await fallbackRes.json();
-                    
-                    if (!fallbackData.error && fallbackData.candidates?.[0]?.content?.parts?.[0]?.text) {
-                        return fallbackData.candidates[0].content.parts[0].text.trim();
-                    }
-                }
+            if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
+                return data.candidates[0].content.parts[0].text.trim();
+            } else {
+                throw new Error("No text returned by AI.");
             }
-
-            throw new Error(primaryData.error?.message || "Model not found. Please check API settings.");
         } catch (e) {
             throw new Error(e.message || "Network request failed. Check API Key or try again.");
         }
