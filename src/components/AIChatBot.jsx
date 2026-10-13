@@ -34,9 +34,7 @@ export default function AIChatBot() {
     const speechQueueRef = useRef([]);
     const isCancelledRef = useRef(false);
     
-    // CACHES FOR SPEED
     const cachedPortfolioData = useRef(null);
-    const activeModelRef = useRef(null);
 
     const getApiKey = () => {
         return (
@@ -313,7 +311,7 @@ CRITICAL RULES FOR VOICE & TEXT:
         setTimeout(() => { window.speechSynthesis.resume(); speakNextChunk(); }, 50);
     };
 
-    // ⚡ PERMANENT BULLETPROOF SMART API ENGINE
+    // ⚡ PERMANENT FIX: DIRECT MODEL TARGETING (No Auto-Discovery Loops)
     const fetchFromGemini = async (apiKey, conversationMessages) => {
         const dynamicInstruction = getDynamicSystemInstruction();
 
@@ -326,64 +324,40 @@ CRITICAL RULES FOR VOICE & TEXT:
             }))
         ];
 
-        try {
-            // STEP 1: Use cached active model if we already found one that works (Lightning Fast)
-            if (activeModelRef.current) {
+        // Google API explicitly recommended 3.8-flash in the error message. 
+        // We will try that first. If it fails, we fall back to the universally stable 1.5-flash.
+        const modelsToTry = [
+            "gemini-3.8-flash",
+            "gemini-1.5-flash"
+        ];
+
+        let lastError = "";
+
+        for (const model of modelsToTry) {
+            try {
                 const res = await fetch(
-                    `https://generativelanguage.googleapis.com/v1beta/${activeModelRef.current}:generateContent?key=${apiKey}`,
+                    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
                     {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ contents })
                     }
                 );
+                
                 const data = await res.json();
+                
                 if (!data.error && data.candidates?.[0]?.content?.parts?.[0]?.text) {
                     return data.candidates[0].content.parts[0].text.trim();
+                } else if (data.error) {
+                    lastError = data.error.message;
+                    // If error occurs, the loop automatically tries the next reliable model
                 }
+            } catch (e) {
+                lastError = e.message;
             }
-
-            // STEP 2: If no active model, ask Google for the list of available models for this specific API key
-            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-            const listData = await listRes.json();
-
-            if (listData.error) throw new Error(listData.error.message);
-
-            const validModels = listData.models.filter(m => m.supportedGenerationMethods?.includes("generateContent"));
-            if (validModels.length === 0) throw new Error("No active models found for this API Key.");
-
-            // Smart Selection: Prioritize 1.5-flash -> any flash -> pro -> any valid
-            let selectedModel = validModels.find(m => m.name === "models/gemini-1.5-flash") ||
-                                validModels.find(m => m.name.includes("1.5-flash")) ||
-                                validModels.find(m => m.name.includes("flash")) ||
-                                validModels.find(m => m.name.includes("pro")) ||
-                                validModels[0];
-
-            // Save the working model for next time so we don't fetch the list again
-            activeModelRef.current = selectedModel.name;
-
-            // STEP 3: Fetch with the guaranteed working model
-            const res = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/${selectedModel.name}:generateContent?key=${apiKey}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ contents })
-                }
-            );
-            
-            const data = await res.json();
-            
-            if (data.error) throw new Error(data.error.message);
-
-            if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                return data.candidates[0].content.parts[0].text.trim();
-            } else {
-                throw new Error("No text returned by AI.");
-            }
-        } catch (e) {
-            throw new Error(e.message || "Network request failed. Check API Key or try again.");
         }
+
+        throw new Error(lastError || "Network request failed. Check API Key or try again.");
     };
 
     const handleSend = async (e, customPrompt = null) => {
