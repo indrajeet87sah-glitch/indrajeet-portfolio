@@ -7,7 +7,7 @@ export default function Hero() {
   const [typewriterText, setTypewriterText] = useState("");
 
   useEffect(() => {
-    const phrases = ["Front-End Developer", "UI/UX Designer", "React Developer"];
+    const phrases = ["Front-End Developer", "Responsive Web Developer", "WordPress Developer"];
     let phraseIndex = 0;
     let charIndex = 0;
     let isDeleting = false;
@@ -127,7 +127,7 @@ export default function Hero() {
             </div>
             <div>
               <div className="text-lg text-[#38bdf8] font-bold leading-none font-mono">Frontend</div>
-              <div className="text-[11px] uppercase tracking-wider text-slate-300 font-medium mt-0.5">UI/UX & Web Dev</div>
+              <div className="text-[11px] uppercase tracking-wider text-slate-300 font-medium mt-0.5">Responsive Web Development</div>
             </div>
           </motion.div>
 
