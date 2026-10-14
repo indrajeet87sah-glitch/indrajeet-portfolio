@@ -4,6 +4,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { GoogleGenAI } from '@google/genai';
 import { PORTFOLIO_KNOWLEDGE } from './portfolioKnowledge.js';
+import { registerTranscribeRoute } from './transcribeRoute.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
@@ -186,5 +187,5 @@ app.post('/api/tts', voiceLimiter, async (req, res) => {
     return res.status(502).json({ error: 'Natural voice timed out or failed.' });
   }
 });
-
+registerTranscribeRoute(app);
 app.listen(PORT, () => console.log(`AI API: http://localhost:${PORT}/api/health`));

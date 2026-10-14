@@ -64,6 +64,10 @@ function getActionType(query) {
   return null;
 }
 
+function isAndroidMobile() {
+  return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+}
+
 function sanitizeSpeech(text) {
   return text
     .replace(/https?:\/\/\S+/g, "")
@@ -124,7 +128,7 @@ export default function AIChatBot() {
   const [isListening, setIsListening] = useState(false);
   const [voiceConversation, setVoiceConversation] = useState(false); // opt-in turn-based voice conversation
   const [speechLanguage, setSpeechLanguage] = useState("en-IN");
-  const [voiceEngine, setVoiceEngine] = useState("natural"); // opt-in voice output uses Gemini TTS; browser voice is fallback
+  const [voiceEngine, setVoiceEngine] = useState(() => isAndroidMobile() ? "browser" : "natural"); // Android defaults to browser voice; natural remains an option
   const [statusNote, setStatusNote] = useState("");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -139,6 +143,9 @@ export default function AIChatBot() {
   const chatBottomRef = useRef(null);
   const chipsRef = useRef(null);
   const recognitionRef = useRef(null);
+  const mediaRecordingRef = useRef(null);
+  const micStartingRef = useRef(false);
+  const transcriptionAbortRef = useRef(null);
   const busyRef = useRef(false);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
@@ -180,6 +187,15 @@ export default function AIChatBot() {
       naturalAudioRef.current?.pause();
       if (naturalUrlRef.current) URL.revokeObjectURL(naturalUrlRef.current);
       recognitionRef.current?.abort?.();
+      // Release the Android microphone if the user navigates away.
+      const recording = mediaRecordingRef.current;
+      if (recording) {
+        recording.cancelled = true;
+        clearTimeout(recording.timeout);
+        try { if (recording.recorder.state !== "inactive") recording.recorder.stop(); } catch {}
+        recording.stream.getTracks().forEach((track) => track.stop());
+      }
+      transcriptionAbortRef.current?.abort();
       activeRequestRef.current?.abort();
     };
   }, []);
@@ -209,10 +225,22 @@ export default function AIChatBot() {
   const stopVoiceConversation = (message = "") => {
     voiceConversationRef.current = false;
     setVoiceConversation(false);
+    voiceEnabledRef.current = false;
+    setVoiceEnabled(false);
     clearTimeout(voiceCycleTimerRef.current);
     recognitionSessionRef.current += 1;
     try { recognitionRef.current?.abort?.(); } catch {}
     recognitionRef.current = null;
+    const recording = mediaRecordingRef.current;
+    if (recording) {
+      recording.cancelled = true;
+      clearTimeout(recording.timeout);
+      try { if (recording.recorder.state !== "inactive") recording.recorder.stop(); } catch {}
+      recording.stream.getTracks().forEach((track) => track.stop());
+      mediaRecordingRef.current = null;
+    }
+    transcriptionAbortRef.current?.abort();
+    transcriptionAbortRef.current = null;
     setIsListening(false);
     stopAllAudio();
     if (message) setStatusNote(message);
@@ -227,6 +255,15 @@ export default function AIChatBot() {
       clearTimeout(voiceCycleTimerRef.current);
       recognitionSessionRef.current += 1;
       try { recognitionRef.current?.abort?.(); } catch {}
+      const recording = mediaRecordingRef.current;
+      if (recording) {
+        recording.cancelled = true;
+        clearTimeout(recording.timeout);
+        try { if (recording.recorder.state !== "inactive") recording.recorder.stop(); } catch {}
+        recording.stream.getTracks().forEach((track) => track.stop());
+        mediaRecordingRef.current = null;
+      }
+      transcriptionAbortRef.current?.abort();
       stopAllAudio();
     }
   }, [isOpen]);
@@ -252,6 +289,12 @@ export default function AIChatBot() {
     if (!mountedRef.current || playbackId !== voicePlaybackIdRef.current) return;
     setIsSpeaking(false);
     if (voiceConversationRef.current && isOpenRef.current) {
+      if (isAndroidMobile()) {
+        // Mobile Chrome often blocks an automatic SpeechRecognition restart.
+        // The same Mic button is ready for the next question instead.
+        setStatusNote("Tap Mic to ask your next question.");
+        return;
+      }
       setStatusNote("Ab aap boliye... / Your turn!");
       clearTimeout(voiceCycleTimerRef.current);
       voiceCycleTimerRef.current = setTimeout(() => {
@@ -464,7 +507,7 @@ export default function AIChatBot() {
     } catch (error) {
       if (requestId !== requestIdRef.current) return;
       if (voiceConversationRef.current) {
-        stopVoiceConversationRef.current?.("AI reply failed. Tap Start Voice to try again.");
+        stopVoiceConversationRef.current?.("AI reply failed. Tap Mic to try again.");
       }
       setMessages((prev) => [...prev, {
         role: "model",
@@ -486,27 +529,147 @@ export default function AIChatBot() {
 
   handleSendRef.current = handleSend;
 
+  // Android Chrome can fail silently with webkitSpeechRecognition even when
+  // permission is "Allow". Record audio on Android and transcribe on the
+  // backend instead. The API key never goes to the visitor's browser.
+  const startMobileRecording = async (auto = false) => {
+    if (busyRef.current || micStartingRef.current || mediaRecordingRef.current) return;
+    const sessionId = ++recognitionSessionRef.current;
+    micStartingRef.current = true;
+    setStatusNote("Opening Android microphone...");
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      // Closing the chatbot while the Android permission prompt is open
+      // must never leave the microphone running.
+      if (sessionId !== recognitionSessionRef.current || !isOpenRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"]
+        .find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const recording = { recorder, stream, chunks: [], cancelled: false, timeout: null };
+      mediaRecordingRef.current = recording;
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size) recording.chunks.push(event.data);
+      };
+      recorder.onerror = (event) => {
+        console.warn("Android voice recording failed:", event.error);
+        if (mediaRecordingRef.current !== recording) return;
+        recording.cancelled = true;
+        setStatusNote("Microphone recording failed. Tap Mic to retry.");
+        stopVoiceConversationRef.current?.();
+      };
+      recorder.onstop = async () => {
+        clearTimeout(recording.timeout);
+        recording.stream.getTracks().forEach((track) => track.stop());
+        if (mediaRecordingRef.current === recording) mediaRecordingRef.current = null;
+        if (recording.cancelled || sessionId !== recognitionSessionRef.current) return;
+        setIsListening(false);
+        const audio = new Blob(recording.chunks, { type: recorder.mimeType || "audio/webm" });
+        if (audio.size < 900) {
+          setStatusNote("No recording detected. Tap Mic and speak again.");
+          return;
+        }
+        const controller = new AbortController();
+        transcriptionAbortRef.current = controller;
+        setStatusNote("Understanding your voice...");
+        try {
+          const base = (import.meta.env.VITE_CHAT_API_BASE_URL || "").replace(/\/$/, "");
+          const response = await fetch(`${base}/api/transcribe?lang=${encodeURIComponent(languageRef.current)}`, {
+            method: "POST",
+            headers: { "Content-Type": audio.type || "audio/webm" },
+            body: audio,
+            signal: controller.signal,
+          });
+          const result = await response.json().catch(() => ({}));
+          if (controller.signal.aborted || sessionId !== recognitionSessionRef.current) return;
+          if (!response.ok) throw new Error(result.error || `Voice recognition error (${response.status})`);
+          if (!result.transcript?.trim()) {
+            setStatusNote("No speech detected. Tap Mic to try again.");
+            return;
+          }
+          setStatusNote("");
+          handleSendRef.current?.(null, result.transcript.trim());
+        } catch (error) {
+          if (error.name === "AbortError") return;
+          console.warn("Android transcription failed:", error.message);
+          setStatusNote(`Mobile voice unavailable: ${error.message}`);
+        } finally {
+          if (transcriptionAbortRef.current === controller) transcriptionAbortRef.current = null;
+        }
+      };
+      recorder.start(300);
+      setIsListening(true);
+      setStatusNote(languageRef.current === "hi-IN"
+        ? "सुन रहा हूँ... बोलिए, फिर Mic दबाकर भेजिए।"
+        : "Listening... Speak, then tap Mic again to send.");
+      // Prevent an abandoned microphone from recording forever.
+      recording.timeout = setTimeout(() => {
+        if (mediaRecordingRef.current === recording && recorder.state === "recording") {
+          setStatusNote("Recording finished. Understanding your voice...");
+          recorder.stop();
+        }
+      }, 18000);
+    } catch (error) {
+      stream?.getTracks().forEach((track) => track.stop());
+      if (sessionId !== recognitionSessionRef.current) return;
+      setIsListening(false);
+      if (auto) stopVoiceConversationRef.current?.();
+      const reason = error.name === "NotAllowedError"
+        ? "Android microphone is blocked. Allow microphone in Chrome and Android settings."
+        : error.name === "NotFoundError"
+          ? "Android microphone not found. Check device microphone access."
+          : `Android microphone error: ${error.message || "Could not start recording."}`;
+      setStatusNote(reason);
+    } finally {
+      micStartingRef.current = false;
+    }
+  };
+
   const startListening = (auto = false) => {
     if (busyRef.current) return;
-    if (isListening) {
-      if (voiceConversationRef.current) stopVoiceConversation("Voice conversation stopped.");
-      else {
-        recognitionSessionRef.current += 1;
-        recognitionRef.current?.stop?.();
+    if (mediaRecordingRef.current) {
+      const recording = mediaRecordingRef.current;
+      if (recording.recorder.state === "recording") {
+        clearTimeout(recording.timeout);
+        setStatusNote("Understanding your voice...");
         setIsListening(false);
+        recording.recorder.stop();
       }
+      return;
+    }
+    if (micStartingRef.current) return;
+    if (isListening) {
+      recognitionSessionRef.current += 1;
+      try { recognitionRef.current?.stop?.(); } catch {}
+      recognitionRef.current = null;
+      setIsListening(false);
+      setStatusNote("Tap Mic to ask another question.");
       return;
     }
     setStatusNote("");
     stopAllAudio();
     if (!window.isSecureContext && window.location.hostname !== "localhost") {
-      if (auto) stopVoiceConversation();
-      setStatusNote("Microphone needs HTTPS (or localhost)."); return;
+      if (auto) stopVoiceConversationRef.current?.();
+      setStatusNote("Microphone needs HTTPS (or localhost).");
+      return;
+    }
+    // Android: use MediaRecorder + backend audio transcription, NOT
+    // the unreliable mobile Web Speech Recognition implementation.
+    if (isAndroidMobile() && navigator.mediaDevices?.getUserMedia &&
+        typeof MediaRecorder !== "undefined") {
+      startMobileRecording(auto);
+      return;
     }
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Recognition) {
-      if (auto) stopVoiceConversation();
-      setStatusNote("Please use Chrome or Edge for voice chat."); return;
+      if (auto) stopVoiceConversationRef.current?.();
+      setStatusNote("Speech recognition is unavailable in this browser.");
+      return;
     }
     try {
       const recognition = new Recognition();
@@ -535,8 +698,8 @@ export default function AIChatBot() {
         const reason = ev.error === "not-allowed"
           ? "Please allow microphone permission in your browser."
           : ev.error === "no-speech"
-            ? "No speech detected. Tap Start Voice to try again."
-            : "Voice input failed. Tap Start Voice to retry.";
+            ? "No speech detected. Tap Mic to try again."
+            : `Voice input failed (${ev.error || "unknown"}). Tap Mic to retry.`;
         if (voiceConversationRef.current) stopVoiceConversationRef.current?.();
         setIsListening(false);
         setStatusNote(reason);
@@ -545,40 +708,43 @@ export default function AIChatBot() {
         if (sessionId !== recognitionSessionRef.current) return;
         recognitionRef.current = null;
         setIsListening(false);
-        // No automatic infinite re-listening when the user stays silent.
         if (!receivedTranscript && voiceConversationRef.current) {
-          stopVoiceConversationRef.current?.("No speech heard. Tap Start Voice to try again.");
+          stopVoiceConversationRef.current?.("No speech heard. Tap Mic to try again.");
         }
       };
       recognition.start();
-    } catch {
-      if (voiceConversationRef.current) stopVoiceConversation();
+    } catch (error) {
+      if (voiceConversationRef.current) stopVoiceConversationRef.current?.();
       setIsListening(false);
-      setStatusNote("Could not start mic. Please tap Start Voice again.");
+      setStatusNote(`Could not start mic: ${error.message || "try again"}.`);
     }
   };
   startListeningRef.current = startListening;
 
-  const startVoiceConversation = () => {
-    // Always allow Stop, even while waiting for Gemini to answer or synthesize speech.
-    if (busyRef.current && !voiceConversationRef.current) return;
-    if (!voiceConversationRef.current && voiceEngineRef.current === "browser" && !("speechSynthesis" in window)) {
-      setStatusNote("This browser does not support speaking replies. Please try Chrome or Edge.");
+  const toggleUnifiedMic = () => {
+    if (transcriptionAbortRef.current) {
+      setStatusNote("Please wait while I understand your voice...");
       return;
     }
-    if (voiceConversationRef.current) {
-      stopVoiceConversation("Voice conversation stopped.");
-      voiceEnabledRef.current = false;
-      setVoiceEnabled(false);
+    // The SAME microphone button starts, sends, and restarts voice input.
+    // Unlike the old UI, there is no separate "Start Voice" button.
+    if (mediaRecordingRef.current || isListening) {
+      startListeningRef.current?.(false);
       return;
     }
-    // The first recognition request is in the user's button click handler.
-    // Some browsers block automatic restart later; user can re-tap Start Voice.
-    voiceConversationRef.current = true;
-    setVoiceConversation(true);
+    if (micStartingRef.current) return;
+    if (busyRef.current || isSpeaking) {
+      stopVoiceConversationRef.current?.("Voice conversation stopped.");
+      return;
+    }
+    if (!voiceConversationRef.current) {
+      voiceConversationRef.current = true;
+      setVoiceConversation(true);
+    }
+    // One mic tap also enables spoken replies.
     voiceEnabledRef.current = true;
     setVoiceEnabled(true);
-    startListeningRef.current?.(true);
+    startListeningRef.current?.(false);
   };
 
   const clearChat = () => {
@@ -699,27 +865,6 @@ export default function AIChatBot() {
               </div>
             </div>
 
-            {/* Optional voice-to-voice mode: one user turn, one spoken AI turn, then listen again. */}
-            <div className="px-3 py-2 bg-[#151e2d] border-t border-white/10 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[12px] font-semibold text-slate-100">🎙️ Voice Conversation</p>
-                <p className="text-[10px] text-slate-400">
-                  {isListening ? "Listening to your question..."
-                    : loading && voiceConversation ? "AI is thinking..."
-                    : isSpeaking && voiceConversation ? "AI is answering..."
-                    : voiceConversation ? "Voice mode active"
-                    : "Speak → AI replies → speak again"}
-                </p>
-              </div>
-              <button type="button" onClick={startVoiceConversation} disabled={loading && !voiceConversation}
-                aria-pressed={voiceConversation}
-                className={`shrink-0 px-3 py-2 rounded-xl text-[11px] font-semibold border transition disabled:opacity-50 ${voiceConversation
-                  ? "bg-rose-500/15 border-rose-400/40 text-rose-300 hover:bg-rose-500/25"
-                  : "bg-[#72bbf6] border-[#72bbf6] text-[#090d16] hover:bg-[#5caeeb]"}`}>
-                {voiceConversation ? "■ Stop Voice" : "▶ Start Voice"}
-              </button>
-            </div>
-
             <div ref={chipsRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}
               onTouchStart={() => setIsHovered(true)} onTouchEnd={() => setIsHovered(false)}
               onWheel={(e) => { if (chipsRef.current) chipsRef.current.scrollLeft += e.deltaY; }}
@@ -736,9 +881,14 @@ export default function AIChatBot() {
               <div className="flex-1 relative flex items-center min-w-0">
                 <input type="text" maxLength={1000} placeholder={isListening ? "Listening..." : "Ask about works, skills..."}
                   value={input} onChange={(e) => setInput(e.target.value)} aria-label="Ask the portfolio assistant"
-                  className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-10 py-2.5 rounded-xl outline-none border ${isListening ? "border-red-400/70 placeholder-red-400" : "border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500"}`} />
-                <button type="button" onClick={() => startListening(false)} className={`absolute right-3 ${isListening ? "text-red-400 animate-pulse" : "text-slate-400 hover:text-[#72bbf6]"}`}
-                  title="Tap and speak" aria-label="Speak your question"><span className="material-symbols-outlined text-[18px]">mic</span></button>
+                  className={`w-full bg-[#121724] text-white text-xs pl-3.5 pr-12 py-3 rounded-xl outline-none border ${isListening ? "border-red-400/70 placeholder-red-400" : "border-white/10 focus:border-[#72bbf6]/50 placeholder-slate-500"}`} />
+                <button type="button" onClick={toggleUnifiedMic}
+                  aria-label={isListening ? "Stop recording and send voice question" : "Ask AI a question by voice"}
+                  aria-pressed={isListening}
+                  className={`absolute right-0 top-1/2 -translate-y-1/2 w-11 h-11 flex items-center justify-center rounded-xl transition-colors touch-manipulation ${isListening ? "text-red-300 bg-red-400/15 animate-pulse" : "text-[#72bbf6] hover:bg-[#72bbf6]/15"}`}
+                  title={isListening ? "Tap again to send your voice question" : "Tap to speak"}>
+                  <span className="material-symbols-outlined text-[22px]">{isListening ? "stop_circle" : "mic"}</span>
+                </button>
               </div>
               <button type="button" onClick={() => setSpeechLanguage((v) => v === "hi-IN" ? "en-IN" : "hi-IN")}
                 className="text-[11px] text-[#72bbf6] border border-[#72bbf6]/30 px-2 py-2 rounded-lg" title="Change microphone language">
