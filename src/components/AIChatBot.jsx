@@ -269,13 +269,39 @@ export default function AIChatBot() {
       stopVoiceConversationRef.current?.();
       return;
     }
-    const useHindi = /[\u0900-\u097F]/.test(text) || languageRef.current === 'hi-IN';
+    // Choose the output voice from the AI reply's actual script.
+    // HI / EN control is for microphone recognition; it should not make
+    // an English reply sound unclear by reading it with a Hindi voice.
+    const useHindi = /[\u0900-\u097F]/.test(text);
     const speechText = browserSpeechPronunciation(text, useHindi);
     if (!speechText) return finishSpokenTurn(playbackId);
 
-    const voices = synth.getVoices();
-    const preferredVoice = voices.find((v) => v.lang.toLowerCase().startsWith(useHindi ? 'hi' : 'en-in'))
-      || voices.find((v) => v.lang.toLowerCase().startsWith('en'));
+    const voices = synth.getVoices().length
+      ? synth.getVoices()
+      : voicesRef.current;
+
+    const hindiVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('hi'));
+    const englishVoices = voices.filter((v) => v.lang.toLowerCase().startsWith('en'));
+
+    // Preferred Hindi order verified on your Chrome installation:
+    // 1. Google हिन्दी  2. Microsoft Kalpana  3. Microsoft Hemant
+    const preferredVoice = useHindi
+      ? (
+          hindiVoices.find((v) => v.name.toLowerCase().includes('google')) ||
+          hindiVoices.find((v) => v.name.toLowerCase().includes('kalpana')) ||
+          hindiVoices.find((v) => v.name.toLowerCase().includes('hemant')) ||
+          hindiVoices[0]
+        )
+      : (
+          englishVoices.find((v) => v.lang.toLowerCase() === 'en-in' && v.name.toLowerCase().includes('google')) ||
+          englishVoices.find((v) => v.lang.toLowerCase() === 'en-in') ||
+          englishVoices.find((v) => v.name.toLowerCase().includes('google')) ||
+          englishVoices[0]
+        );
+
+    if (useHindi && !preferredVoice) {
+      setStatusNote('No Hindi browser voice found. Hindi pronunciation may not be clear.');
+    }
 
     const chunks = [];
     let chunk = '';
@@ -299,13 +325,13 @@ export default function AIChatBot() {
       utteranceRef.current = utterance;
       utterance.lang = preferredVoice?.lang || (useHindi ? 'hi-IN' : 'en-IN');
       if (preferredVoice) utterance.voice = preferredVoice;
-      utterance.rate = 0.95;
+      utterance.rate = useHindi ? 0.9 : 0.95;
       utterance.pitch = 1;
       utterance.volume = 1;
       utterance.onstart = () => {
         if (playbackId !== voicePlaybackIdRef.current) return;
         setIsSpeaking(true);
-        setStatusNote('Browser voice speaking...');
+        setStatusNote(preferredVoice ? `Speaking: ${preferredVoice.name}` : 'Browser voice speaking...');
       };
       utterance.onend = () => {
         if (playbackId !== voicePlaybackIdRef.current) return;
